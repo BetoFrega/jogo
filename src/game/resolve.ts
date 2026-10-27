@@ -20,25 +20,27 @@ export function damerauLevenshtein(a: string, b: string): number {
   return d[a.length][b.length];
 }
 
-const close = (a: string, b: string) => damerauLevenshtein(a, b) <= (Math.min(a.length, b.length) >= 8 ? 2 : 1);
+type Close = (a: string, b: string) => boolean;
+const typo: Close = (a, b) => damerauLevenshtein(a, b) <= (Math.min(a.length, b.length) >= 8 ? 2 : 1);
+const same: Close = (a, b) => a === b;
 
-/** `input` is an in-order subsequence of `entry`, token by token within typo tolerance. */
-function subsequence(input: string[], entry: string[]): boolean {
+/** `input` is an in-order subsequence of `entry`, token by token. */
+function subsequence(input: string[], entry: string[], close: Close): boolean {
   if (input.length === 0) return true;
   if (entry.length < input.length) return false;
-  return (close(input[0], entry[0]) && subsequence(input.slice(1), entry.slice(1))) || subsequence(input, entry.slice(1));
+  return (close(input[0], entry[0]) && subsequence(input.slice(1), entry.slice(1), close)) || subsequence(input, entry.slice(1), close);
 }
 
 /**
  * Typo-tolerant match of normalized names: first and last tokens must match,
  * middle tokens of `entry` may be omitted ("daniela leite" ~ "daniela quaresma leite").
  */
-export function nameMatches(input: string, entry: string): boolean {
+export function nameMatches(input: string, entry: string, close: Close = typo): boolean {
   const i = input.split(" ").filter(Boolean);
   const e = entry.split(" ").filter(Boolean);
   if (i.length === 0 || e.length === 0) return false;
   if (i.length === 1 || e.length === 1) return i.length === e.length && close(i[0], e[0]);
-  return close(i[0], e[0]) && close(i.at(-1)!, e.at(-1)!) && subsequence(i.slice(1, -1), e.slice(1, -1));
+  return close(i[0], e[0]) && close(i.at(-1)!, e.at(-1)!) && subsequence(i.slice(1, -1), e.slice(1, -1), close);
 }
 
 function resolve<T>(items: T[], key: (t: T) => string, display: (t: T) => string, typedKey: string): Resolution<T> {
@@ -51,6 +53,9 @@ function resolve<T>(items: T[], key: (t: T) => string, display: (t: T) => string
   if (typedKey === "") return { kind: "unknown" };
   return (
     pick(items.filter((t) => key(t) === typedKey)) ??
+    // Spelled right with a middle name left out beats a one-letter neighbour:
+    // "daniela leite" is Daniela Quaresma Leite, not Daniel Leite.
+    pick(items.filter((t) => nameMatches(typedKey, key(t), same))) ??
     pick(items.filter((t) => nameMatches(typedKey, key(t)))) ?? { kind: "unknown" }
   );
 }
@@ -82,11 +87,11 @@ export function similarPhonebookPairs(phonebook: PhonebookEntry[]): [string, str
 
 /**
  * Canonical form of a typed or authored number. No tolerance: only normalization,
- * a leading "Portaria"/"nº"/"n." dropped, and leading zeros dropped per segment
- * ("Portaria nº 087/94" = "87/94").
+ * a leading "Portaria"/"nº"/"n." dropped, leading zeros dropped per segment and
+ * separators dropped ("Portaria nº 087/94" = "87/94" = "8794", "4.471" = "4471").
  */
 export function canonicalNumber(s: string): string {
   const tokens = normalize(s).split(" ").filter(Boolean);
   while (tokens.length && ["portaria", "n", "no"].includes(tokens[0])) tokens.shift();
-  return tokens.map((t) => (/^\d+$/.test(t) ? t.replace(/^0+(?=\d)/, "") : t)).join(" ");
+  return tokens.map((t) => (/^\d+$/.test(t) ? t.replace(/^0+(?=\d)/, "") : t)).join("");
 }

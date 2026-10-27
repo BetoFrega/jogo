@@ -44,10 +44,12 @@ function personError(r: Resolution<unknown>): string {
 function orgError(r: Resolution<unknown>): string {
   return r.kind === "ambiguous"
     ? `Há mais de uma entidade com nome parecido: ${r.names.join(", ")}. Escreva o nome como consta nos documentos.`
-    : "Entidade não encontrada.";
+    : "Entidade não encontrada nos documentos que você leu.";
 }
 
-export function parseComposer(values: ComposerValues, layout: ComposerLayout, graph: Graph): ComposerParse {
+/** `collectedOrgs`: only orgs the player met in a document resolve, so typing never reveals the case's orgs. */
+export function parseComposer(values: ComposerValues, layout: ComposerLayout, graph: Graph, collectedOrgs: string[]): ComposerParse {
+  const orgs = graph.orgs.filter((o) => collectedOrgs.includes(o.id));
   const relations = new Set(graph.relations.map((r) => r.id));
   const errors: Record<string, string> = {};
   const facts: ComposedFact[] = [];
@@ -68,7 +70,7 @@ export function parseComposer(values: ComposerValues, layout: ComposerLayout, gr
       if (r.kind === "ok") object = { first: r.value.first, last: r.value.last };
       else fail("obj", personError(r));
     } else if (v("org")) {
-      const r = resolveOrg(graph.orgs, v("org"));
+      const r = resolveOrg(orgs, v("org"));
       if (r.kind === "ok") object = { org: r.value.id };
       else fail("org", orgError(r));
     } else fail("obj", "Preencha a pessoa ou a entidade.");

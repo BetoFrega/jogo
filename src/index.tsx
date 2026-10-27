@@ -224,7 +224,8 @@ game.post("/responder/:question", async (c) => {
   const layout = composerLayout(content.graph, question);
   const values = composerValues(await c.req.parseBody(), layout);
   // Resolution and missing fields are answered here, before submitAnswer: no answer row, no rate-limit use.
-  const parsed = parseComposer(values, layout, content.graph);
+  const { orgs } = await state.collectedTerms(c.env.DB, c.get("userId"));
+  const parsed = parseComposer(values, layout, content.graph, orgs);
   if (parsed.kind === "errors") return composer(c, id, { values, errors: parsed.errors, error: "Revise os campos marcados. Nada foi enviado à redação." });
   const result = await state.submitAnswer(c.env.DB, content, c.get("userId"), id, parsed.facts, Date.now());
   switch (result.kind) {

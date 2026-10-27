@@ -77,7 +77,7 @@ describe("composer form", () => {
       const html = await res.text();
       expect(html).toContain('<span class="error" id="f0_who_err">Nome não consta na lista telefônica.</span>');
       expect(html).toContain('<span class="error" id="f0_num_err">Obrigatório.</span>');
-      expect(html).toContain('<span class="error" id="f1_org_err">Entidade não encontrada.</span>');
+      expect(html).toContain('<span class="error" id="f1_org_err">Entidade não encontrada nos documentos que você leu.</span>');
       expect(html).toContain('<span class="error" id="f1_rel_err">Obrigatório.</span>');
       expect(html).toContain('value="Padaria Central"');
     }
