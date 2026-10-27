@@ -112,6 +112,12 @@ evidence: [f-nomeacao]      # facts this doc proves (checked for solvability)
 Body in Markdown. Placeholders: {{player.handle}}, {{gate:prefeitura}}.
 ```
 
+Bodies (docs and mail) are rendered by the Worker with a small Markdown subset
+(`src/game/markdown.ts`), after placeholders and after HTML-escaping everything:
+paragraphs (single newlines kept as line breaks), `#`/`##`/`###` headings,
+`> ` quotes, `---` rules, GFM tables, `**bold**` and `*italic*`. Anything else
+shows as typed.
+
 Intranet docs (`engine: gate:<id>`) are not searchable; they are listed once the
 player unlocked that gate.
 
