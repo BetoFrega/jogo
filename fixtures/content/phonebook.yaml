@@ -6,3 +6,5 @@
 - { first: "Davi", last: "Ficticio", address: "Praça C, 2", phone: "21-0006" }
 - { first: "Rui", last: "Teste", address: "Rua D, 9", phone: "21-0007" }
 - { first: "Marta", last: "Teste", address: "Rua D, 11", phone: "21-0008" }
+- { first: "Ruy", last: "Exemplo", address: "Rua E, 4", phone: "21-0009" }
+- { first: "Beatriz", last: "Quaresma Teste", address: "Rua F, 7", phone: "21-0010" }

@@ -1,8 +1,10 @@
 // Server-rendered pages. Player-facing text is Brazilian Portuguese; inside the
 // fiction (1994) never name real technologies.
 import type { Child } from "hono/jsx";
-import type { Doc, Engine, GateListing, Mail, Org, PhonebookEntry, Relation } from "../content/types.ts";
+import type { Doc, Engine, GateListing, Mail, PhonebookEntry, Relation } from "../content/types.ts";
+import { fieldName, type ComposerLayout, type ComposerValues } from "../game/composer.ts";
 import type { QuestionStatus } from "../game/state.ts";
+import { AUTOSAVE_JS, autosaveKey } from "./autosave.ts";
 
 // ---------- shells ----------
 
@@ -203,11 +205,17 @@ export function MailboxPage(props: {
   items: { rowId: number; mail: Mail; unread: boolean }[];
   pending: boolean;
   sent: boolean;
+  /** Autosave key of the composer draft to drop after a successful send. */
+  clearDraft?: string;
 }) {
   return (
     <Desk title="Correio" handle={props.handle} refreshSeconds={props.pending ? 10 : undefined}>
       <Win title="Correio — Caixa de entrada">
-        {props.sent ? <p class="notice">Resposta enviada à redação.</p> : null}
+        {props.sent ? (
+          <p class="notice" data-autosave-clear={props.clearDraft}>
+            Resposta enviada à redação.
+          </p>
+        ) : null}
         {props.pending ? <p class="notice">Aguardando retorno da redação…</p> : null}
         <ul class="plain">
           {props.items.map((i) => (
@@ -216,6 +224,7 @@ export function MailboxPage(props: {
             </li>
           ))}
         </ul>
+        {props.clearDraft ? <Script js={AUTOSAVE_JS} /> : null}
       </Win>
     </Desk>
   );
@@ -257,58 +266,107 @@ export function LetterPage(props: { handle: string; mail: Mail; bodyHtml: string
   );
 }
 
-export interface ComposerOptions {
-  firsts: string[];
-  lasts: string[];
-  relations: Relation[];
-  orgs: Org[];
-  numbers: string[];
+function Script(props: { js: string }) {
+  return <script dangerouslySetInnerHTML={{ __html: props.js }} />;
 }
 
-function Select(props: { name: string; options: [string, string][]; label: string; blank: string }) {
+/** One labelled field with its error message beside it. */
+function Field(props: { label: string; required?: boolean; name: string; error?: string; children: Child }) {
   return (
-    <select name={props.name} aria-label={props.label}>
-      <option value="">{props.blank}</option>
-      {props.options.map(([value, text]) => (
-        <option value={value}>{text}</option>
-      ))}
-    </select>
+    <div class="row">
+      <label for={props.name}>
+        {props.label}
+        {props.required ? <span class="req"> *</span> : null}:
+      </label>
+      {props.children}
+      {props.error ? (
+        <span class="error" id={`${props.name}_err`}>
+          {props.error}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
-export function ComposerPage(props: { handle: string; questionId: string; subject: string; slots: number; options: ComposerOptions; error?: string }) {
-  const o = props.options;
-  const names = (xs: string[]): [string, string][] => xs.map((x) => [x, x]);
+export function ComposerPage(props: {
+  handle: string;
+  questionId: string;
+  subject: string;
+  layout: ComposerLayout;
+  relations: Relation[];
+  values: ComposerValues;
+  errors: Record<string, string>;
+  error?: string;
+}) {
+  const { slots, numbered } = props.layout;
+  const text = (name: string, label: string, required: boolean) => (
+    <input
+      type="text"
+      id={name}
+      name={name}
+      value={props.values[name] ?? ""}
+      aria-label={label}
+      autocomplete="off"
+      required={required}
+      aria-invalid={props.errors[name] ? "true" : undefined}
+      aria-describedby={props.errors[name] ? `${name}_err` : undefined}
+    />
+  );
   return (
     <Desk title="Responder" handle={props.handle}>
       <Win title={`Responder — ${props.subject}`}>
         <p>
-          Monte {props.slots === 1 ? "o fato" : `os ${props.slots} fatos`} que respondem à pergunta. A redação avalia a resposta inteira.
+          Monte {slots === 1 ? "o fato" : `os ${slots} fatos`} que respondem à pergunta, em qualquer ordem. A redação avalia a resposta inteira.
+          {numbered > 0
+            ? numbered === slots
+              ? " Todos os fatos levam número."
+              : ` ${numbered === 1 ? "O primeiro quadro é para o fato" : `Os ${numbered} primeiros quadros são para os fatos`} que levam número.`
+            : null}
+        </p>
+        <p>
+          Escreva os nomes como constam na lista telefônica. Campos com <span class="req">*</span> são obrigatórios; em “Com quem”, preencha a
+          pessoa <b>ou</b> a entidade.
         </p>
         {props.error ? <p class="error">{props.error}</p> : null}
-        <form method="post" action={`/responder/${props.questionId}`}>
-          {Array.from({ length: props.slots }, (_, i) => (
-            <fieldset>
-              <legend>Fato {i + 1}</legend>
-              <div class="row">
-                Quem: <Select name={`f${i}_first`} label="Nome" blank="(nome)" options={names(o.firsts)} />
-                <Select name={`f${i}_last`} label="Sobrenome" blank="(sobrenome)" options={names(o.lasts)} />
-              </div>
-              <div class="row">
-                Relação: <Select name={`f${i}_rel`} label="Relação" blank="(relação)" options={o.relations.map((r) => [r.id, r.label])} />
-              </div>
-              <div class="row">
-                Com quem: <Select name={`f${i}_ofirst`} label="Nome do objeto" blank="(nome)" options={names(o.firsts)} />
-                <Select name={`f${i}_olast`} label="Sobrenome do objeto" blank="(sobrenome)" options={names(o.lasts)} />
-                ou entidade: <Select name={`f${i}_org`} label="Entidade" blank="(nenhuma)" options={o.orgs.map((x) => [x.id, x.name])} />
-              </div>
-              <div class="row">
-                Número: <Select name={`f${i}_num`} label="Número" blank="(nenhum)" options={names(o.numbers)} />
-              </div>
-            </fieldset>
-          ))}
+        <form method="post" action={`/responder/${props.questionId}`} data-autosave={autosaveKey(props.handle, props.questionId)}>
+          {Array.from({ length: slots }, (_, i) => {
+            const n = (f: Parameters<typeof fieldName>[1]) => fieldName(i, f);
+            return (
+              <fieldset>
+                <legend>
+                  Fato {i + 1}
+                  {i < numbered ? " — com número" : ""}
+                </legend>
+                <Field label="Quem (nome completo)" required name={n("who")} error={props.errors[n("who")]}>
+                  {text(n("who"), "Quem", true)}
+                </Field>
+                <Field label="Relação" required name={n("rel")} error={props.errors[n("rel")]}>
+                  <select id={n("rel")} name={n("rel")} aria-label="Relação" required>
+                    <option value="">(relação)</option>
+                    {props.relations.map((r) => (
+                      <option value={r.id} selected={props.values[n("rel")] === r.id}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Com quem (pessoa)" required name={n("obj")} error={props.errors[n("obj")]}>
+                  {text(n("obj"), "Com quem", false)}
+                </Field>
+                <Field label="ou entidade" name={n("org")} error={props.errors[n("org")]}>
+                  {text(n("org"), "Entidade", false)}
+                </Field>
+                {i < numbered ? (
+                  <Field label="Número" required name={n("num")} error={props.errors[n("num")]}>
+                    {text(n("num"), "Número", true)}
+                  </Field>
+                ) : null}
+              </fieldset>
+            );
+          })}
           <button type="submit">Enviar à redação</button>
         </form>
+        <Script js={AUTOSAVE_JS} />
       </Win>
     </Desk>
   );

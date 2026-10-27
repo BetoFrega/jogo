@@ -14,7 +14,7 @@ if (!sourceDir || !outDir || !Number.isInteger(version) || version < 1) {
 }
 
 try {
-  const files = compile(sourceDir, version);
+  const files = compile(sourceDir, version, (w) => console.log(`warning: ${w}`));
   rmSync(join(outDir, "content", `v${version}`), { recursive: true, force: true });
   for (const [path, text] of files) {
     const target = join(outDir, path);

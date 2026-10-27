@@ -122,3 +122,21 @@ describe("compile checks (broken fixtures)", () => {
     expect(problemsAfter((d) => edit(d, "mail/carta-03.md", "A matéria sai amanhã.", "Ligue para o Webster."))).toEqual([]);
   });
 });
+
+describe("compile warnings", () => {
+  it("lists phonebook pairs a typo can't tell apart, without failing", () => {
+    const warnings: string[] = [];
+    const files = compile(FIXTURE, 1, (w) => warnings.push(w));
+    expect(files.get("content/current")).toBe("v1");
+    expect(warnings).toEqual(['phonebook: "Rui Exemplo" and "Ruy Exemplo" are within typo tolerance; a typo near either is refused as ambiguous']);
+  });
+
+  it("flags a pair that only differs by an omitted middle surname", () => {
+    const dir = mkdtempSync(join(tmpdir(), "content-"));
+    cpSync(FIXTURE, dir, { recursive: true });
+    appendFileSync(join(dir, "phonebook.yaml"), '- { first: "Beatriz", last: "Teste" }\n');
+    const warnings: string[] = [];
+    compile(dir, 1, (w) => warnings.push(w));
+    expect(warnings).toContain('phonebook: "Beatriz Quaresma Teste" and "Beatriz Teste" are within typo tolerance; a typo near either is refused as ambiguous');
+  });
+});

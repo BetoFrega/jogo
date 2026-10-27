@@ -1,7 +1,9 @@
 // Answer validation: a submitted set of composed facts is accepted only when
 // it equals the question's fact set exactly. Never reports which fact failed.
+// People and orgs arrive already resolved (resolve.ts); comparison here is exact.
 import { normalize } from "../content/normalize.ts";
 import type { Fact, FactObject, Graph, PersonRef, Question } from "../content/types.ts";
+import { canonicalNumber } from "./resolve.ts";
 
 export interface ComposedFact {
   subject: PersonRef;
@@ -15,7 +17,7 @@ const object = (o: FactObject) => ("org" in o ? `org:${normalize(o.org)}` : `p:$
 
 function matches(fact: Fact, symmetric: boolean, c: ComposedFact): boolean {
   if (c.relation !== fact.relation) return false;
-  if (fact.number !== undefined && normalize(c.number ?? "") !== normalize(fact.number)) return false;
+  if (fact.number !== undefined && canonicalNumber(c.number ?? "") !== canonicalNumber(fact.number)) return false;
   const direct = person(c.subject) === person(fact.subject) && object(c.object) === object(fact.object);
   if (direct) return true;
   if (!symmetric || "org" in fact.object || "org" in c.object) return false;

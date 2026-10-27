@@ -40,6 +40,12 @@ describe("isAccepted", () => {
     expect(isAccepted(graph, q1, [nomeacao, conjuge, conjuge])).toBe(false);
   });
 
+  it("compares numbers without leading zeros or a leading nº, but never fuzzily", () => {
+    expect(isAccepted(graph, q1, [{ ...nomeacao, number: "nº 493" }, conjuge])).toBe(true);
+    expect(isAccepted(graph, q1, [{ ...nomeacao, number: "00493" }, conjuge])).toBe(true);
+    expect(isAccepted(graph, q1, [{ ...nomeacao, number: "0439" }, conjuge])).toBe(false);
+  });
+
   it("matches org objects by id", () => {
     const socia: ComposedFact = { subject: { first: "Ana", last: "Teste" }, relation: "socio_de", object: { org: "org-merenda" } };
     const pagamento: ComposedFact = { subject: { first: "Rui", last: "Exemplo" }, relation: "autorizou_pagamento", object: { org: "org-merenda" }, number: "1250" };

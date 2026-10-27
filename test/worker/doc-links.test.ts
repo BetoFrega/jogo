@@ -1,27 +1,5 @@
-import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { createAuth } from "../../src/auth.ts";
-import type { Env } from "../../src/env.ts";
-import app from "../../src/index.tsx";
-import { lastDevMailSent } from "../../src/mail.ts";
-
-const testEnv = env as unknown as Env;
-const BASE = "http://localhost";
-const get = (path: string, cookie: string) => app.fetch(new Request(BASE + path, { headers: { cookie } }), testEnv);
-
-/** Real magic-link sign-in (server API, so no captcha) + handle creation; returns the session cookie. */
-async function newPlayer(email: string, handle: string): Promise<string> {
-  await createAuth(testEnv).api.signInMagicLink({ body: { email, callbackURL: "/" }, headers: new Headers() });
-  const link = lastDevMailSent()!.text.match(/https?:\/\/\S+/)![0];
-  const verified = await app.fetch(new Request(link), testEnv);
-  const cookie = verified.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
-  const created = await app.fetch(
-    new Request(`${BASE}/identidade`, { method: "POST", headers: { cookie, "content-type": "application/x-www-form-urlencoded" }, body: `handle=${handle}` }),
-    testEnv,
-  );
-  expect(created.status).toBe(302);
-  return cookie;
-}
+import { get, newPlayer } from "./players.ts";
 
 async function searchLink(cookie: string): Promise<string> {
   const html = await (await get("/busca/diario?q=portaria%200493", cookie)).text();

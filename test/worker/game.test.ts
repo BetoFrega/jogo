@@ -86,9 +86,9 @@ describe("answers", () => {
     expect(await submitAnswer(DB, content, userId, "q1", q1Right, T0 + 5000, () => 0)).toEqual({ kind: "not_open", status: "solved" });
   });
 
-  it("refuses numbers or orgs the player has not collected", async () => {
-    expect(await submitAnswer(DB, content, userId, "q1", q1Right, T0, () => 0)).toEqual({ kind: "invalid" });
-    expect(await mailIds(T0 + 10_000)).toEqual(["carta-01"]);
+  it("judges numbers and orgs without requiring the player to have opened a doc", async () => {
+    expect(await submitAnswer(DB, content, userId, "q1", q1Right, T0, () => 0)).toEqual({ kind: "submitted" });
+    expect(await mailIds(T0 + 2000)).toEqual(["carta-02", "carta-01"]);
   });
 
   it("refuses a question whose letter has not arrived", async () => {

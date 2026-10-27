@@ -48,7 +48,7 @@ gates:
   - id: prefeitura
     name: "Intranet da Prefeitura"
     format: "WORD-NNNN"     # WORD from words.txt (uppercased), N digits
-relations:                  # fixed list shown in the composer, distractors included
+relations:                  # fixed list shown in the composer's Relação select, distractors included
   - { id: conjuge, label: "é cônjuge de", symmetric: true }
   - { id: nomeou, label: "nomeou" }
 reply_delay_seconds: [30, 60]
@@ -58,7 +58,9 @@ start_mail: carta-01        # delivered on first login
 
 ### phonebook.yaml
 
-The fixed name source for the composer. Real cast and red herrings alike.
+The fixed name source for the composer: every person the player types is resolved
+to one of these entries (see [Composer](#composer-and-name-resolution)). Real cast
+and red herrings alike. `last` may hold several surnames ("Quaresma Leite").
 
 ```yaml
 - { first: "Marta", last: "Exemplo", address: "Rua A, 10", phone: "21-0001" }
@@ -67,14 +69,14 @@ The fixed name source for the composer. Real cast and red herrings alike.
 ### graph.yaml
 
 ```yaml
-orgs:                       # organizations; become composable once collected
+orgs:                       # organizations; the player types the name (see Composer)
   - { id: org-merenda, name: "Merenda Exemplo Ltda." }
 facts:
   - id: f-nomeacao
     subject: { first: "Marta", last: "Exemplo" }      # a phonebook person
     relation: nomeou
     object: { first: "Rui", last: "Exemplo" }         # person, or { org: org-merenda }
-    number: "0493"          # optional; must be collected to be composable
+    number: "0493"          # optional; write it as players will read it in the docs
 questions:
   - id: q1
     mail: carta-01          # the letter that asks it
@@ -85,10 +87,10 @@ questions:
 
 A submitted answer is a list of composed facts. It is accepted only when the set
 of submitted facts equals the question's set exactly (same size, every fact
-matched). Facts compare by normalized subject first+last, relation id, normalized
-object (person names or org id) and normalized number (when the fact has one).
-Symmetric relations match in either direction. The verdict never says which
-fact failed.
+matched, in any order). Facts compare by the **resolved** subject phonebook
+entry, relation id, resolved object (phonebook entry or org id) and canonical
+number (when the fact has one). Symmetric relations match in either direction.
+The verdict never says which fact failed.
 
 ### docs/**/*.md
 
@@ -104,7 +106,7 @@ fields:                     # values indexed by the engine (keys from engine.fie
   numero_ato: ["0493/93"]
 aliases:                    # extra normalized keys pointing at this doc
   "0493/93": ["portaria 0493"]
-collect:                    # collected by the player when the doc is opened
+collect:                    # recorded when the doc is opened; the composer no longer requires it
   numbers: ["0493"]
   orgs: [org-merenda]
 evidence: [f-nomeacao]      # facts this doc proves (checked for solvability)
@@ -133,6 +135,48 @@ question: q1                # optional: the reply composer opens for this questi
 Oi, {{player.handle}}, ...
 ```
 
+## Composer and name resolution
+
+The reply composer (`/responder/<question>`) has one box per question fact. The
+order of the boxes does not matter. Each box has:
+
+- **Quem (nome completo)**, required, free text: a phonebook person.
+- **Relação**, required, a select with the manifest's `relations`.
+- **Com quem (pessoa)** or **entidade**, free text, exactly one of the two.
+- **Número**, required, free text, only in the first K boxes, where K is how many
+  of the question's facts have a `number`. Those boxes are labeled "com número".
+
+Typos are tolerated by **resolving** each typed value to one entry before
+judging; the judge itself is exact. A typed person resolves like this:
+
+1. `normalize()` the text. If it equals a phonebook entry's normalized
+   `first last`, that entry is the answer.
+2. Otherwise collect candidates, token by token with Damerau-Levenshtein
+   distance ≤ 1 (≤ 2 when both tokens have 8+ letters). The first and last
+   tokens must match; middle surnames may be omitted ("Daniela Leite" →
+   "Daniela Quaresma Leite").
+3. One candidate → that entry. More than one → the composer is shown again with
+   "Há mais de uma pessoa na lista telefônica com nome parecido: X, Y. Escreva o
+   nome como consta na lista." None → "Nome não consta na lista telefônica."
+
+An entity resolves the same way against the org `name`, compared without a
+trailing "Ltda."/"S.A."; no match → "Entidade não encontrada." Numbers are never
+fuzzy: after `normalize()`, a leading "Portaria", "nº"/"n." is dropped and
+leading zeros are dropped per segment, so "Portaria nº 087/94" = "87/94". A
+number is not checked against anything before judging.
+
+Resolution errors and missing fields never reach the judge: the composer comes
+back with status 400, the typed values and the message beside the field. They
+create no answer and do not count toward `answers_per_hour`.
+
+Because an exact entry always wins, a name that is itself another entry is
+judged as that entry and never corrected. A typo close to two entries is
+refused as ambiguous, so near-identical names stay safe as deliberate traps.
+
+The composer saves what the player types in the browser (`localStorage`, key
+`jogo:composer:<handle>:<question>`) and clears it after a successful send. The
+page works without it.
+
 ## Compiler checks (fail loud, non-zero exit)
 
 - Unique ids; every reference resolves (engine, gate, relation, fact, org, mail, question).
@@ -141,6 +185,16 @@ Oi, {{player.handle}}, ...
 - Every `{{gate:x}}` and `{{player.handle}}` placeholder is known.
 - Forbidden-terms check: `<source>/forbidden.txt` (optional, one normalized term
   per line) must not appear in any text.
+
+## Compiler warnings (printed, never fail)
+
+- Similar names: every pair of phonebook entries within typo tolerance of each
+  other, by the same rule the composer uses. A typo near either entry is refused
+  as ambiguous, so check that each pair is intentional:
+
+  ```
+  warning: phonebook: "Rui Exemplo" and "Ruy Exemplo" are within typo tolerance; a typo near either is refused as ambiguous
+  ```
 
 ## Published bundle (R2)
 

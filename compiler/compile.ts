@@ -6,6 +6,7 @@ import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { normalize } from "../src/content/normalize.ts";
+import { similarPhonebookPairs } from "../src/game/resolve.ts";
 import {
   GATE_ENGINE_PREFIX,
   type Doc,
@@ -46,7 +47,11 @@ interface SourceMail extends Mail {
   file: string;
 }
 
-export function compile(sourceDir: string, version: number): Map<string, string> {
+/**
+ * `warn` receives non-fatal notes for the content author (the CLI prints them);
+ * they never fail the build.
+ */
+export function compile(sourceDir: string, version: number, warn: (message: string) => void = () => {}): Map<string, string> {
   const problems: string[] = [];
   const fail = (msg: string) => problems.push(msg);
 
@@ -214,6 +219,10 @@ export function compile(sourceDir: string, version: number): Map<string, string>
   }
 
   if (problems.length) throw new CompileError(problems);
+
+  // --- warnings: names a typo can't tell apart (the composer asks the player to disambiguate) ---
+  for (const [a, b] of similarPhonebookPairs(phonebook))
+    warn(`phonebook: "${a}" and "${b}" are within typo tolerance; a typo near either is refused as ambiguous`);
 
   // --- output ---
   const out = new Map<string, string>();

@@ -132,7 +132,7 @@ export async function questionStatus(db: D1Database, content: Content, userId: s
 export type SubmitResult =
   | { kind: "submitted" }
   | { kind: "rate_limited" }
-  | { kind: "invalid" } // references terms the player has not collected, or wrong slot count
+  | { kind: "invalid" } // wrong slot count
   | { kind: "not_open"; status: QuestionStatus };
 
 export async function submitAnswer(
@@ -155,11 +155,6 @@ export async function submitAnswer(
   if ((count?.n ?? 0) >= content.manifest.answers_per_hour) return { kind: "rate_limited" };
 
   if (facts.length !== question.facts.length) return { kind: "invalid" };
-  const collected = await collectedTerms(db, userId);
-  for (const f of facts) {
-    if ("org" in f.object && !collected.orgs.includes(f.object.org)) return { kind: "invalid" };
-    if (f.number !== undefined && !collected.numbers.includes(f.number)) return { kind: "invalid" };
-  }
 
   const accepted = isAccepted(content.graph, question, facts);
   const [min, max] = content.manifest.reply_delay_seconds;

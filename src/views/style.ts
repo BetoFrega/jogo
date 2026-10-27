@@ -64,6 +64,7 @@ table { border-collapse: collapse; width: 100%; background: #fff; }
 th, td { text-align: left; padding: 3px 6px; border: 1px solid var(--lo); }
 .error { color: var(--alert); font-weight: bold; font-family: "Courier New", monospace; }
 .notice { font-family: "Courier New", monospace; }
+.req { color: var(--alert); font-weight: bold; }
 .unread { font-weight: bold; }
 fieldset { border: 2px groove var(--face); margin: 0 0 12px; }
 .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }

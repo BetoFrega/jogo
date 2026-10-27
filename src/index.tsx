@@ -4,7 +4,7 @@ import { createAuth, MAGIC_LINK_PATH, type Auth } from "./auth.ts";
 import { getDoc, getMail, loadContent, type Content } from "./content/store.ts";
 import { GATE_ENGINE_PREFIX } from "./content/types.ts";
 import type { Env } from "./env.ts";
-import { composerNames, parseComposerForm } from "./game/composer.ts";
+import { composerLayout, composerValues, parseComposer, type ComposerValues } from "./game/composer.ts";
 import { signDocLink, verifyDocLink } from "./game/doclink.ts";
 import { derivePassword, verifyPassword } from "./game/gate.ts";
 import { renderMarkdown } from "./game/markdown.ts";
@@ -12,6 +12,7 @@ import { renderPlaceholders } from "./game/render.ts";
 import { search } from "./game/search.ts";
 import * as state from "./game/state.ts";
 import { lastDevMailSent } from "./mail.ts";
+import { autosaveKey } from "./views/autosave.ts";
 import * as V from "./views/pages.tsx";
 import { CSS } from "./views/style.ts";
 
@@ -169,7 +170,10 @@ game.get("/correio", async (c) => {
     rows.map(async (r) => ({ rowId: r.id, unread: r.read_at === null, mail: await getMail(c.env.CONTENT, c.get("content"), r.mail_id) })),
   );
   const pending = await state.hasPendingReply(c.env.DB, c.get("userId"), now);
-  return c.html(<V.MailboxPage handle={c.get("handle")} items={items} pending={pending} sent={c.req.query("enviado") === "1"} />);
+  // ?enviado=<question id> after a successful send; only a real question id clears its draft.
+  const sent = c.req.query("enviado");
+  const clearDraft = c.get("content").graph.questions.some((q) => q.id === sent) ? autosaveKey(c.get("handle"), sent!) : undefined;
+  return c.html(<V.MailboxPage handle={c.get("handle")} items={items} pending={pending} sent={sent !== undefined} clearDraft={clearDraft} />);
 });
 
 game.get("/correio/:id{[0-9]+}", async (c) => {
@@ -182,20 +186,22 @@ game.get("/correio/:id{[0-9]+}", async (c) => {
   return c.html(<V.LetterPage handle={c.get("handle")} mail={mail} bodyHtml={await render(c, mail.body)} question={question} />);
 });
 
-async function composer(c: C, questionId: string, error?: string) {
+async function composer(c: C, questionId: string, form?: { values: ComposerValues; errors?: Record<string, string>; error: string }) {
   const content = c.get("content");
   const question = content.graph.questions.find((q) => q.id === questionId)!;
   const mail = await getMail(c.env.CONTENT, content, question.mail);
-  const collected = await state.collectedTerms(c.env.DB, c.get("userId"));
-  const options = {
-    ...composerNames(content.graph),
-    relations: content.graph.relations,
-    orgs: content.graph.orgs.filter((o) => collected.orgs.includes(o.id)),
-    numbers: collected.numbers,
-  };
   return c.html(
-    <V.ComposerPage handle={c.get("handle")} questionId={questionId} subject={mail.subject} slots={question.facts.length} options={options} error={error} />,
-    error ? 400 : 200,
+    <V.ComposerPage
+      handle={c.get("handle")}
+      questionId={questionId}
+      subject={mail.subject}
+      layout={composerLayout(content.graph, question)}
+      relations={content.graph.relations}
+      values={form?.values ?? {}}
+      errors={form?.errors ?? {}}
+      error={form?.error}
+    />,
+    form ? 400 : 200,
   );
 }
 
@@ -215,16 +221,19 @@ game.post("/responder/:question", async (c) => {
   const status = await state.questionStatus(c.env.DB, content, c.get("userId"), id, Date.now());
   if (status === "unavailable") return c.notFound();
   if (status !== "open") return c.redirect("/correio");
-  const facts = parseComposerForm(await c.req.parseBody(), question.facts.length, content.graph);
-  if (!facts) return composer(c, id, "Preencha cada fato por completo: quem, relação e uma pessoa ou entidade.");
-  const result = await state.submitAnswer(c.env.DB, content, c.get("userId"), id, facts, Date.now());
+  const layout = composerLayout(content.graph, question);
+  const values = composerValues(await c.req.parseBody(), layout);
+  // Resolution and missing fields are answered here, before submitAnswer: no answer row, no rate-limit use.
+  const parsed = parseComposer(values, layout, content.graph);
+  if (parsed.kind === "errors") return composer(c, id, { values, errors: parsed.errors, error: "Revise os campos marcados. Nada foi enviado à redação." });
+  const result = await state.submitAnswer(c.env.DB, content, c.get("userId"), id, parsed.facts, Date.now());
   switch (result.kind) {
     case "submitted":
-      return c.redirect("/correio?enviado=1");
+      return c.redirect(`/correio?enviado=${id}`);
     case "rate_limited":
-      return composer(c, id, "LINHA OCUPADA. A redação não recebe mais respostas suas nesta hora.");
+      return composer(c, id, { values, error: "LINHA OCUPADA. A redação não recebe mais respostas suas nesta hora." });
     case "invalid":
-      return composer(c, id, "Resposta com dados que você ainda não levantou.");
+      return composer(c, id, { values, error: "Resposta incompleta." });
     case "not_open":
       return result.status === "unavailable" ? c.notFound() : c.redirect("/correio");
   }
