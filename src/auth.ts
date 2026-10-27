@@ -11,6 +11,8 @@ interface AuthConfig {
   baseURL: string;
   secret: string;
   turnstileSecretKey: string;
+  /** Dev only: alternative siteverify endpoint (see /dev/turnstile-siteverify). */
+  turnstileVerifyUrl?: string;
   google?: { clientId: string; clientSecret: string };
   sendMagicLink: (email: string, url: string) => Promise<void>;
 }
@@ -36,6 +38,7 @@ export function authOptions(c: AuthConfig) {
         provider: "cloudflare-turnstile",
         secretKey: c.turnstileSecretKey,
         endpoints: [MAGIC_LINK_PATH],
+        ...(c.turnstileVerifyUrl ? { siteVerifyURLOverride: c.turnstileVerifyUrl } : {}),
       }),
     ],
   } satisfies BetterAuthOptions;
@@ -52,6 +55,7 @@ export function createAuth(env: Env) {
       baseURL: env.BETTER_AUTH_URL,
       secret: env.BETTER_AUTH_SECRET,
       turnstileSecretKey: env.TURNSTILE_SECRET_KEY,
+      turnstileVerifyUrl: env.ENVIRONMENT === "development" ? env.TURNSTILE_VERIFY_URL : undefined,
       google,
       sendMagicLink: (email, url) =>
         sendMail(env, {

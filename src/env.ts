@@ -18,6 +18,8 @@ export interface Env {
   BETTER_AUTH_SECRET: string;
   GATE_SECRET_V1: string;
   TURNSTILE_SECRET_KEY: string;
+  /** Development only: override Turnstile siteverify (offline/sandboxed machines). */
+  TURNSTILE_VERIFY_URL?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
 }

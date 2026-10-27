@@ -1,0 +1,286 @@
+import { Hono, type Context } from "hono";
+import { createMiddleware } from "hono/factory";
+import { createAuth, MAGIC_LINK_PATH, type Auth } from "./auth.ts";
+import { getDoc, getMail, loadContent, type Content } from "./content/store.ts";
+import { GATE_ENGINE_PREFIX } from "./content/types.ts";
+import type { Env } from "./env.ts";
+import { composerNames, parseComposerForm } from "./game/composer.ts";
+import { derivePassword, verifyPassword } from "./game/gate.ts";
+import { renderPlaceholders } from "./game/render.ts";
+import { search } from "./game/search.ts";
+import * as state from "./game/state.ts";
+import { lastDevMailSent } from "./mail.ts";
+import * as V from "./views/pages.tsx";
+import { CSS } from "./views/style.ts";
+
+type Vars = { auth: Auth; userId: string; email: string; handle: string; content: Content };
+type C = Context<{ Bindings: Env; Variables: Vars }>;
+
+const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+
+// One Better Auth instance per isolate (env is stable within an isolate).
+let authCache: { env: Env; auth: Auth } | null = null;
+app.use("*", async (c, next) => {
+  if (authCache?.env !== c.env) authCache = { env: c.env, auth: createAuth(c.env) };
+  c.set("auth", authCache.auth);
+  await next();
+});
+
+app.onError((err, c) => {
+  console.error(err);
+  return c.html(<V.ErrorPage message="Falha inesperada no sistema. Tente novamente em instantes." />, 500);
+});
+
+app.get("/estilo.css", (c) => c.body(CSS, 200, { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=300" }));
+app.on(["GET", "POST"], "/api/auth/*", (c) => c.get("auth").handler(c.req.raw));
+
+// ---------- meta layer: login, account ----------
+
+/** Calls a Better Auth endpoint through its HTTP handler so plugin hooks (captcha, rate limit) run. */
+function callAuth(c: C, path: string, body: unknown, headers: Record<string, string> = {}): Promise<Response> {
+  const ip = c.req.header("cf-connecting-ip");
+  return c.get("auth").handler(
+    new Request(new URL(`/api/auth${path}`, c.env.BETTER_AUTH_URL), {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: new URL(c.env.BETTER_AUTH_URL).origin, ...(ip ? { "cf-connecting-ip": ip } : {}), ...headers },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+const googleEnabled = (env: Env) => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+const loginPage = (c: C, status: 200 | 400 | 429, error?: string, email?: string) =>
+  c.html(<V.LoginPage siteKey={c.env.TURNSTILE_SITE_KEY} googleEnabled={googleEnabled(c.env)} error={error} email={email} />, status);
+
+app.get("/entrar", async (c) => {
+  const session = await c.get("auth").api.getSession({ headers: c.req.raw.headers });
+  return session ? c.redirect("/") : loginPage(c, 200);
+});
+
+app.post("/entrar", async (c) => {
+  const form = await c.req.parseBody();
+  const email = typeof form.email === "string" ? form.email.trim() : "";
+  const captcha = typeof form["cf-turnstile-response"] === "string" ? form["cf-turnstile-response"] : "";
+  const res = await callAuth(c, MAGIC_LINK_PATH, { email, callbackURL: "/" }, { "x-captcha-response": captcha });
+  if (res.status === 429) return loginPage(c, 429, "Muitas tentativas. Aguarde um minuto e tente de novo.", email);
+  if (!res.ok) {
+    console.warn("magic link request failed", res.status, await res.text());
+    return loginPage(c, 400, "Não foi possível enviar o link. Confira o e-mail e a verificação anti-robô.", email);
+  }
+  return c.html(<V.CheckInboxPage email={email} devLink={c.env.ENVIRONMENT === "development"} />);
+});
+
+app.post("/entrar/google", async (c) => {
+  if (!googleEnabled(c.env)) return c.notFound();
+  const res = await callAuth(c, "/sign-in/social", { provider: "google", callbackURL: "/" });
+  const { url } = (await res.json()) as { url?: string };
+  if (!res.ok || !url) throw new Error(`google sign-in failed: ${res.status}`);
+  const out = c.redirect(url);
+  for (const cookie of res.headers.getSetCookie()) out.headers.append("set-cookie", cookie);
+  return out;
+});
+
+app.get("/dev/last-link", (c) => {
+  if (c.env.ENVIRONMENT !== "development") return c.notFound();
+  return c.html(<V.DevLastLinkPage mail={lastDevMailSent()} />);
+});
+
+// Offline stand-in for Turnstile siteverify, mirroring Cloudflare's test secrets:
+// the always-pass test secret succeeds, anything else fails. Only reachable in
+// development and only used when TURNSTILE_VERIFY_URL points here.
+const TURNSTILE_ALWAYS_PASS_SECRET = "1x0000000000000000000000000000000AA";
+app.post("/dev/turnstile-siteverify", async (c) => {
+  if (c.env.ENVIRONMENT !== "development") return c.notFound();
+  const { secret } = (await c.req.json()) as { secret?: string };
+  const success = secret === TURNSTILE_ALWAYS_PASS_SECRET;
+  return c.json({ success, "error-codes": success ? [] : ["invalid-input-secret"] });
+});
+
+const requireUser = createMiddleware<{ Bindings: Env; Variables: Vars }>(async (c, next) => {
+  const session = await c.get("auth").api.getSession({ headers: c.req.raw.headers });
+  if (!session) return c.redirect("/entrar");
+  c.set("userId", session.user.id);
+  c.set("email", session.user.email);
+  await next();
+});
+
+app.post("/sair", requireUser, async (c) => {
+  const res = await c.get("auth").api.signOut({ headers: c.req.raw.headers, asResponse: true });
+  const out = c.redirect("/entrar");
+  for (const cookie of res.headers.getSetCookie()) out.headers.append("set-cookie", cookie);
+  return out;
+});
+
+app.get("/conta", requireUser, async (c) =>
+  c.html(<V.AccountPage email={c.get("email")} handle={await state.getHandle(c.env.DB, c.get("userId"))} />),
+);
+
+app.get("/identidade", requireUser, async (c) => {
+  if (await state.getHandle(c.env.DB, c.get("userId"))) return c.redirect("/");
+  return c.html(<V.HandlePage />);
+});
+
+app.post("/identidade", requireUser, async (c) => {
+  const form = await c.req.parseBody();
+  const handle = typeof form.handle === "string" ? form.handle.trim() : "";
+  const content = await loadContent(c.env.CONTENT);
+  const result = await state.createPlayer(c.env.DB, content, c.get("userId"), handle, Date.now());
+  if (result === "created") return c.redirect("/correio");
+  if (result === "taken" && (await state.getHandle(c.env.DB, c.get("userId")))) return c.redirect("/");
+  const error = result === "taken" ? "Esse nome já está em uso. Escolha outro." : "Nome inválido. Use de 3 a 16 letras sem acento, números, ponto, hífen ou sublinhado.";
+  return c.html(<V.HandlePage error={error} value={handle} />, 400);
+});
+
+// ---------- fiction: everything below needs a player ----------
+
+const requirePlayer = createMiddleware<{ Bindings: Env; Variables: Vars }>(async (c, next) => {
+  const handle = await state.getHandle(c.env.DB, c.get("userId"));
+  if (!handle) return c.redirect("/identidade");
+  c.set("handle", handle);
+  c.set("content", await loadContent(c.env.CONTENT));
+  await next();
+});
+
+const game = new Hono<{ Bindings: Env; Variables: Vars }>();
+game.use("*", requireUser, requirePlayer);
+
+function gatePasswordFor(c: C) {
+  const { graph } = c.get("content");
+  return (gateId: string) => {
+    const gate = graph.gates.find((g) => g.id === gateId)!;
+    return derivePassword(c.env.GATE_SECRET_V1, c.get("userId"), gateId, gate.format, graph.words);
+  };
+}
+const render = (c: C, text: string) => renderPlaceholders(text, c.get("handle"), gatePasswordFor(c));
+
+game.get("/", async (c) => {
+  const { manifest, graph } = c.get("content");
+  const mail = await state.visibleMail(c.env.DB, c.get("userId"), Date.now());
+  return c.html(<V.DesktopPage handle={c.get("handle")} unread={mail.filter((m) => m.read_at === null).length} engines={manifest.engines} gates={graph.gates} />);
+});
+
+game.get("/correio", async (c) => {
+  const now = Date.now();
+  const rows = await state.visibleMail(c.env.DB, c.get("userId"), now);
+  const items = await Promise.all(
+    rows.map(async (r) => ({ rowId: r.id, unread: r.read_at === null, mail: await getMail(c.env.CONTENT, c.get("content"), r.mail_id) })),
+  );
+  const pending = await state.hasPendingReply(c.env.DB, c.get("userId"), now);
+  return c.html(<V.MailboxPage handle={c.get("handle")} items={items} pending={pending} sent={c.req.query("enviado") === "1"} />);
+});
+
+game.get("/correio/:id{[0-9]+}", async (c) => {
+  const now = Date.now();
+  const row = await state.openMail(c.env.DB, c.get("userId"), Number(c.req.param("id")), now);
+  if (!row) return c.notFound();
+  const content = c.get("content");
+  const mail = await getMail(c.env.CONTENT, content, row.mail_id);
+  const question = mail.question ? { id: mail.question, status: await state.questionStatus(c.env.DB, content, c.get("userId"), mail.question, now) } : undefined;
+  return c.html(<V.LetterPage handle={c.get("handle")} mail={mail} body={await render(c, mail.body)} question={question} />);
+});
+
+async function composer(c: C, questionId: string, error?: string) {
+  const content = c.get("content");
+  const question = content.graph.questions.find((q) => q.id === questionId)!;
+  const mail = await getMail(c.env.CONTENT, content, question.mail);
+  const collected = await state.collectedTerms(c.env.DB, c.get("userId"));
+  const options = {
+    ...composerNames(content.graph),
+    relations: content.graph.relations,
+    orgs: content.graph.orgs.filter((o) => collected.orgs.includes(o.id)),
+    numbers: collected.numbers,
+  };
+  return c.html(
+    <V.ComposerPage handle={c.get("handle")} questionId={questionId} subject={mail.subject} slots={question.facts.length} options={options} error={error} />,
+    error ? 400 : 200,
+  );
+}
+
+game.get("/responder/:question", async (c) => {
+  const id = c.req.param("question");
+  const status = await state.questionStatus(c.env.DB, c.get("content"), c.get("userId"), id, Date.now());
+  if (status === "unavailable") return c.notFound();
+  if (status !== "open") return c.redirect("/correio");
+  return composer(c, id);
+});
+
+game.post("/responder/:question", async (c) => {
+  const id = c.req.param("question");
+  const content = c.get("content");
+  const question = content.graph.questions.find((q) => q.id === id);
+  if (!question) return c.notFound();
+  const status = await state.questionStatus(c.env.DB, content, c.get("userId"), id, Date.now());
+  if (status === "unavailable") return c.notFound();
+  if (status !== "open") return c.redirect("/correio");
+  const facts = parseComposerForm(await c.req.parseBody(), question.facts.length, content.graph);
+  if (!facts) return composer(c, id, "Preencha cada fato por completo: quem, relação e uma pessoa ou entidade.");
+  const result = await state.submitAnswer(c.env.DB, content, c.get("userId"), id, facts, Date.now());
+  switch (result.kind) {
+    case "submitted":
+      return c.redirect("/correio?enviado=1");
+    case "rate_limited":
+      return composer(c, id, "LINHA OCUPADA. A redação não recebe mais respostas suas nesta hora.");
+    case "invalid":
+      return composer(c, id, "Resposta com dados que você ainda não levantou.");
+    case "not_open":
+      return result.status === "unavailable" ? c.notFound() : c.redirect("/correio");
+  }
+});
+
+game.get("/busca/:engine", async (c) => {
+  const content = c.get("content");
+  const engine = content.manifest.engines.find((e) => e.id === c.req.param("engine"));
+  if (!engine) return c.notFound();
+  const query = c.req.query("q");
+  if (query === undefined) return c.html(<V.SearchPage handle={c.get("handle")} engine={engine} query="" outcome={{ kind: "none" }} />);
+  const outcome = search(engine, content.indexes[engine.id], query);
+  const shown =
+    outcome.kind === "results"
+      ? { kind: "results" as const, docs: (await Promise.all(outcome.docIds.map((id) => getDoc(c.env.CONTENT, content, id)))).filter((d) => d !== null) }
+      : outcome;
+  return c.html(<V.SearchPage handle={c.get("handle")} engine={engine} query={query} outcome={shown} />);
+});
+
+game.get("/doc/:id", async (c) => {
+  const content = c.get("content");
+  const doc = await getDoc(c.env.CONTENT, content, c.req.param("id"));
+  if (!doc) return c.notFound();
+  const userId = c.get("userId");
+  let back = `/busca/${doc.engine}`;
+  if (doc.engine.startsWith(GATE_ENGINE_PREFIX)) {
+    const gateId = doc.engine.slice(GATE_ENGINE_PREFIX.length);
+    if (!(await state.isGateUnlocked(c.env.DB, userId, gateId))) return c.notFound();
+    back = `/intranet/${gateId}`;
+  }
+  await state.recordDocOpened(c.env.DB, userId, doc, Date.now());
+  return c.html(<V.DocPage handle={c.get("handle")} doc={doc} body={await render(c, doc.body)} back={back} />);
+});
+
+game.get("/intranet/:gate", async (c) => {
+  const gate = c.get("content").graph.gates.find((g) => g.id === c.req.param("gate"));
+  if (!gate) return c.notFound();
+  const unlocked = await state.isGateUnlocked(c.env.DB, c.get("userId"), gate.id);
+  return c.html(unlocked ? <V.GateIndexPage handle={c.get("handle")} gate={gate} /> : <V.GateLoginPage handle={c.get("handle")} gate={gate} error={false} />);
+});
+
+game.post("/intranet/:gate", async (c) => {
+  const { graph } = c.get("content");
+  const gate = graph.gates.find((g) => g.id === c.req.param("gate"));
+  if (!gate) return c.notFound();
+  const form = await c.req.parseBody();
+  const input = typeof form.senha === "string" ? form.senha : "";
+  if (!(await verifyPassword(input, c.env.GATE_SECRET_V1, c.get("userId"), gate.id, gate.format, graph.words))) {
+    return c.html(<V.GateLoginPage handle={c.get("handle")} gate={gate} error={true} />, 403);
+  }
+  await state.unlockGate(c.env.DB, c.get("userId"), gate.id, Date.now());
+  return c.redirect(`/intranet/${gate.id}`);
+});
+
+game.get("/lista", (c) => {
+  const entries = [...c.get("content").graph.phonebook].sort((a, b) => `${a.last} ${a.first}`.localeCompare(`${b.last} ${b.first}`, "pt-BR"));
+  return c.html(<V.PhonebookPage handle={c.get("handle")} entries={entries} />);
+});
+
+app.route("/", game);
+
+export default app;
