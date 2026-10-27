@@ -1,0 +1,10 @@
+# Deliberately broken: `npm run compile` must fail on this source.
+title: "Caso Quebrado"
+engines:
+  - { id: diario, name: "Diário Quebrado", fields: [pessoa], max_results: 5 }
+gates: []
+relations:
+  - { id: nomeou, label: "nomeou" }
+reply_delay_seconds: [1, 2]
+answers_per_hour: 5
+start_mail: carta-01

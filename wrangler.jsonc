@@ -1,0 +1,22 @@
+// Top level = production. Local dev overrides vars and secrets via .dev.vars
+// (copy .dev.vars.example), so a deploy never ships the dev transport by accident.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jogo",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-08-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "jogo-db", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "jogo-content" }],
+  "send_email": [{ "name": "EMAIL" }],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "EMAIL_TRANSPORT": "cloudflare",
+    "MAIL_FROM": "acesso@example.com",
+    "BETTER_AUTH_URL": "https://example.com",
+    "TURNSTILE_SITE_KEY": "replace-with-production-site-key"
+  },
+  "observability": { "enabled": true }
+}

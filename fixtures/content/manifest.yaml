@@ -1,0 +1,23 @@
+title: "Caso de Teste"
+engines:
+  - id: diario
+    name: "Diário Oficial de Vila Exemplo"
+    fields: [pessoa, numero_ato, empresa]
+    max_results: 2
+  - id: forum
+    name: "Fórum Vila Exemplo"
+    fields: [autor, assunto]
+    max_results: 3
+gates:
+  - id: prefeitura
+    name: "Intranet da Prefeitura"
+    format: "WORD-NNNN"
+relations:
+  - { id: conjuge, label: "é cônjuge de", symmetric: true }
+  - { id: nomeou, label: "nomeou" }
+  - { id: socio_de, label: "é sócio(a) de" }
+  - { id: autorizou_pagamento, label: "autorizou pagamento a" }
+  - { id: irmao_de, label: "é irmão(ã) de", symmetric: true }
+reply_delay_seconds: [2, 4]
+answers_per_hour: 5
+start_mail: carta-01

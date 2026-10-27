@@ -1,0 +1,27 @@
+{
+  "name": "jogo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:fixture": "npm run db:migrate:local && npm run compile -- fixtures/content .build/fixture --version 1 && npm run seed:local -- .build/fixture && wrangler dev",
+    "compile": "node scripts/compile.ts",
+    "seed:local": "node scripts/seed-local.ts",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "gen:auth-sql": "node scripts/gen-auth-sql.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-auth": "1.7.14",
+    "hono": "4.13.14"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "@types/node": "26.6.5",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12",
+    "wrangler": "4.153.0",
+    "yaml": "2.9.1"
+  }
+}

@@ -1,0 +1,8 @@
+- { first: "Marta", last: "Exemplo", address: "Rua A, 10", phone: "21-0001" }
+- { first: "Rui", last: "Exemplo", address: "Rua A, 12", phone: "21-0002" }
+- { first: "Ana", last: "Teste", address: "Rua B, 3", phone: "21-0003" }
+- { first: "Beto", last: "Teste", address: "Rua B, 5", phone: "21-0004" }
+- { first: "Carla", last: "Ficticia", address: "Praça C, 1", phone: "21-0005" }
+- { first: "Davi", last: "Ficticio", address: "Praça C, 2", phone: "21-0006" }
+- { first: "Rui", last: "Teste", address: "Rua D, 9", phone: "21-0007" }
+- { first: "Marta", last: "Teste", address: "Rua D, 11", phone: "21-0008" }

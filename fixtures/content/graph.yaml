@@ -1,0 +1,33 @@
+orgs:
+  - { id: org-merenda, name: "Merenda Exemplo Ltda." }
+  - { id: org-obras, name: "Obras Teste S.A." }
+facts:
+  - id: f-nomeacao
+    subject: { first: "Marta", last: "Exemplo" }
+    relation: nomeou
+    object: { first: "Rui", last: "Exemplo" }
+    number: "0493"
+  - id: f-conjuge
+    subject: { first: "Rui", last: "Exemplo" }
+    relation: conjuge
+    object: { first: "Ana", last: "Teste" }
+  - id: f-socia
+    subject: { first: "Ana", last: "Teste" }
+    relation: socio_de
+    object: { org: org-merenda }
+  - id: f-pagamento
+    subject: { first: "Rui", last: "Exemplo" }
+    relation: autorizou_pagamento
+    object: { org: org-merenda }
+    number: "1250"
+questions:
+  - id: q1
+    mail: carta-01
+    facts: [f-nomeacao, f-conjuge]
+    accept_mail: carta-02
+    reject_mail: recusa
+  - id: q2
+    mail: carta-02
+    facts: [f-socia, f-pagamento]
+    accept_mail: carta-03
+    reject_mail: recusa

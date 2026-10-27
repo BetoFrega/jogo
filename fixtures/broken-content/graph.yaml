@@ -1,0 +1,8 @@
+orgs: []
+facts:
+  - id: f-1
+    subject: { first: "Marta", last: "Exemplo" }
+    relation: demitiu                         # unknown relation
+    object: { first: "Fulano", last: "Fantasma" }  # not in phonebook
+questions:
+  - { id: q1, mail: carta-01, facts: [f-1], accept_mail: carta-01, reject_mail: carta-01 }  # f-1 has no evidence
