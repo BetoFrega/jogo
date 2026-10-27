@@ -6,17 +6,20 @@
   "main": "src/index.tsx",
   "compatibility_date": "2026-10-23",
   "compatibility_flags": ["nodejs_compat"],
+  // Only reachable through the custom domain, which sits behind Cloudflare Access.
+  "workers_dev": false,
+  "preview_urls": false,
   "d1_databases": [
-    { "binding": "DB", "database_name": "jogo-db", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
+    { "binding": "DB", "database_name": "jogo-db", "database_id": "fdf42cf2-5075-44e9-b4d9-bb3f8e6cf88b", "migrations_dir": "migrations" }
   ],
   "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "jogo-content" }],
   "send_email": [{ "name": "EMAIL" }],
   "vars": {
     "ENVIRONMENT": "production",
     "EMAIL_TRANSPORT": "cloudflare",
-    "MAIL_FROM": "acesso@example.com",
-    "BETTER_AUTH_URL": "https://example.com",
-    "TURNSTILE_SITE_KEY": "replace-with-production-site-key"
+    "MAIL_FROM": "redacao@jogo.frega.dev",
+    "BETTER_AUTH_URL": "https://jogo.frega.dev",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFooCUvXuHOpN-UF"
   },
   "observability": { "enabled": true }
 }
