@@ -5,6 +5,7 @@ import { getDoc, getMail, loadContent, type Content } from "./content/store.ts";
 import { GATE_ENGINE_PREFIX } from "./content/types.ts";
 import type { Env } from "./env.ts";
 import { composerNames, parseComposerForm } from "./game/composer.ts";
+import { signDocLink, verifyDocLink } from "./game/doclink.ts";
 import { derivePassword, verifyPassword } from "./game/gate.ts";
 import { renderPlaceholders } from "./game/render.ts";
 import { search } from "./game/search.ts";
@@ -227,6 +228,15 @@ game.post("/responder/:question", async (c) => {
   }
 });
 
+async function signedResults(c: C, docIds: string[]) {
+  const docs = await Promise.all(docIds.map((id) => getDoc(c.env.CONTENT, c.get("content"), id)));
+  return Promise.all(
+    docs
+      .filter((d) => d !== null)
+      .map(async (d) => ({ ...d, href: `/doc/${d.id}?s=${await signDocLink(c.env.DOC_LINK_SECRET, c.get("userId"), d.id)}` })),
+  );
+}
+
 game.get("/busca/:engine", async (c) => {
   const content = c.get("content");
   const engine = content.manifest.engines.find((e) => e.id === c.req.param("engine"));
@@ -236,21 +246,25 @@ game.get("/busca/:engine", async (c) => {
   const outcome = search(engine, content.indexes[engine.id], query);
   const shown =
     outcome.kind === "results"
-      ? { kind: "results" as const, docs: (await Promise.all(outcome.docIds.map((id) => getDoc(c.env.CONTENT, content, id)))).filter((d) => d !== null) }
+      ? { kind: "results" as const, docs: await signedResults(c, outcome.docIds) }
       : outcome;
   return c.html(<V.SearchPage handle={c.get("handle")} engine={engine} query={query} outcome={shown} />);
 });
 
 game.get("/doc/:id", async (c) => {
   const content = c.get("content");
-  const doc = await getDoc(c.env.CONTENT, content, c.req.param("id"));
-  if (!doc) return c.notFound();
   const userId = c.get("userId");
+  const id = c.req.param("id");
+  // Every refusal is the same notFound() as an unknown id: no oracle.
+  const [doc, signed] = await Promise.all([getDoc(c.env.CONTENT, content, id), verifyDocLink(c.env.DOC_LINK_SECRET, userId, id, c.req.query("s"))]);
+  if (!doc) return c.notFound();
   let back = `/busca/${doc.engine}`;
   if (doc.engine.startsWith(GATE_ENGINE_PREFIX)) {
     const gateId = doc.engine.slice(GATE_ENGINE_PREFIX.length);
     if (!(await state.isGateUnlocked(c.env.DB, userId, gateId))) return c.notFound();
     back = `/intranet/${gateId}`;
+  } else if (!signed) {
+    return c.notFound();
   }
   await state.recordDocOpened(c.env.DB, userId, doc, Date.now());
   return c.html(<V.DocPage handle={c.get("handle")} doc={doc} body={await render(c, doc.body)} back={back} />);

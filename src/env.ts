@@ -17,6 +17,7 @@ export interface Env {
   // secrets
   BETTER_AUTH_SECRET: string;
   GATE_SECRET_V1: string;
+  DOC_LINK_SECRET: string;
   TURNSTILE_SECRET_KEY: string;
   /** Development only: override Turnstile siteverify (offline/sandboxed machines). */
   TURNSTILE_VERIFY_URL?: string;

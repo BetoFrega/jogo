@@ -3,6 +3,7 @@ EMAIL_TRANSPORT=console
 BETTER_AUTH_URL=http://localhost:8787
 BETTER_AUTH_SECRET=dev-secret-change-me-dev-secret-change-me
 GATE_SECRET_V1=dev-gate-secret
+DOC_LINK_SECRET=dev-doc-link-secret
 # Cloudflare Turnstile published test keys (always pass).
 TURNSTILE_SITE_KEY=1x00000000000000000000AA
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA

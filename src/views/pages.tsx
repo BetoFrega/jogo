@@ -318,7 +318,7 @@ export function SearchPage(props: {
   handle: string;
   engine: Engine;
   query: string;
-  outcome: { kind: "none" } | { kind: "empty_query" } | { kind: "too_many" } | { kind: "results"; docs: Doc[] };
+  outcome: { kind: "none" } | { kind: "empty_query" } | { kind: "too_many" } | { kind: "results"; docs: (Doc & { href: string })[] };
 }) {
   const o = props.outcome;
   return (
@@ -336,7 +336,7 @@ export function SearchPage(props: {
           <ul class="plain">
             {o.docs.map((d) => (
               <li>
-                <a href={`/doc/${d.id}`}>{d.title}</a> — {d.author}, {d.date}
+                <a href={d.href}>{d.title}</a> — {d.author}, {d.date}
               </li>
             ))}
           </ul>

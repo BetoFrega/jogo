@@ -2,6 +2,7 @@
 // mapped onto the gate format ("WORD" -> word from words.txt, "N" -> digit,
 // anything else is kept literally). Nothing is stored; verify recomputes.
 import { normalize } from "../content/normalize.ts";
+import { hmacSha256 } from "./hmac.ts";
 
 export async function derivePassword(
   secret: string,
@@ -10,8 +11,7 @@ export async function derivePassword(
   format: string,
   words: string[],
 ): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const bytes = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${userId}:${gateId}`)));
+  const bytes = await hmacSha256(secret, `${userId}:${gateId}`);
   let pos = 0;
   const take = (n: number) => {
     if (pos + n > bytes.length) throw new Error(`gate format "${format}" needs more entropy than one HMAC provides`);

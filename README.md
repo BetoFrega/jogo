@@ -56,6 +56,7 @@ Workers project for D1/R2 behaviour), `npm run typecheck`.
 | `TURNSTILE_SITE_KEY` | var | Turnstile widget key |
 | `BETTER_AUTH_SECRET` | secret | Better Auth signing secret |
 | `TURNSTILE_SECRET_KEY` | secret | Turnstile secret |
+| `DOC_LINK_SECRET` | secret | HMAC key for signed doc links (`/doc/:id?s=`). Changing it only invalidates links already on screen |
 | `GATE_SECRET_V1` | secret | HMAC key for intranet passwords. Changing it changes every player's password |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | secret, optional | Enable "Entrar com Google" when both are set |
 | `TURNSTILE_VERIFY_URL` | dev only, optional | Siteverify override, ignored outside development |
