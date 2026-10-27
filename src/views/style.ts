@@ -40,7 +40,7 @@ body.fiction {
 .paper blockquote { padding-left: 12px; border-left: 3px solid var(--lo); }
 .paper hr { border: 0; border-top: 1px dashed var(--ink); }
 .paper table { width: auto; max-width: 100%; background: transparent; display: block; overflow-x: auto; }
-.paper th, .paper td { border: 1px solid var(--ink); padding: 2px 8px; white-space: pre-wrap; vertical-align: top; }
+.paper th, .paper td { border: 1px solid var(--ink); padding: 2px 8px; white-space: pre-wrap; vertical-align: top; overflow-wrap: normal; }
 .paper th { font-weight: bold; border-bottom-width: 2px; }
 .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; max-width: 760px; margin: 24px auto; }
 .icon { text-align: center; color: #fff; text-decoration: none; padding: 8px; }
