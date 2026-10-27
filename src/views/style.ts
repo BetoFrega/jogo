@@ -33,6 +33,15 @@ body.fiction {
   background: var(--paper); border: 2px inset var(--face); padding: 12px;
   font-family: "Courier New", Courier, monospace; white-space: pre-wrap;
 }
+.paper p, .paper blockquote, .paper table, .paper hr { margin: 0 0 1em; }
+.paper > :last-child { margin-bottom: 0; }
+.paper h1, .paper h2, .paper h3 { font-size: 1em; font-weight: bold; text-transform: uppercase; margin: 0 0 1em; }
+.paper h1 { text-align: center; }
+.paper blockquote { padding-left: 12px; border-left: 3px solid var(--lo); }
+.paper hr { border: 0; border-top: 1px dashed var(--ink); }
+.paper table { width: auto; max-width: 100%; background: transparent; display: block; overflow-x: auto; }
+.paper th, .paper td { border: 1px solid var(--ink); padding: 2px 8px; white-space: pre-wrap; vertical-align: top; }
+.paper th { font-weight: bold; border-bottom-width: 2px; }
 .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; max-width: 760px; margin: 24px auto; }
 .icon { text-align: center; color: #fff; text-decoration: none; padding: 8px; }
 .icon .glyph {

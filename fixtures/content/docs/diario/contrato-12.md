@@ -10,6 +10,14 @@ fields:
 collect:
   orgs: [org-merenda]
 ---
-CONTRATANTE: Prefeitura de Vila Exemplo. CONTRATADA: Merenda Exemplo Ltda.
+**CONTRATANTE:** Prefeitura de Vila Exemplo. **CONTRATADA:** Merenda Exemplo Ltda.
 OBJETO: fornecimento de merenda escolar. Assina pela Secretaria de Compras:
 Rui Exemplo.
+
+| Item | Quantidade | Valor |
+|------|-----------:|-------|
+| Merenda escolar | 1.200 | Cr$ 4.800.000 |
+
+> *Publicado por ordem da Prefeita.*
+
+---

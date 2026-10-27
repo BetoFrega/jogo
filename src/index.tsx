@@ -7,6 +7,7 @@ import type { Env } from "./env.ts";
 import { composerNames, parseComposerForm } from "./game/composer.ts";
 import { signDocLink, verifyDocLink } from "./game/doclink.ts";
 import { derivePassword, verifyPassword } from "./game/gate.ts";
+import { renderMarkdown } from "./game/markdown.ts";
 import { renderPlaceholders } from "./game/render.ts";
 import { search } from "./game/search.ts";
 import * as state from "./game/state.ts";
@@ -152,7 +153,8 @@ function gatePasswordFor(c: C) {
     return derivePassword(c.env.GATE_SECRET_V1, c.get("userId"), gateId, gate.format, graph.words);
   };
 }
-const render = (c: C, text: string) => renderPlaceholders(text, c.get("handle"), gatePasswordFor(c));
+// Placeholders first, then Markdown, which escapes everything (the handle is user input).
+const render = async (c: C, text: string) => renderMarkdown(await renderPlaceholders(text, c.get("handle"), gatePasswordFor(c)));
 
 game.get("/", async (c) => {
   const { manifest, graph } = c.get("content");
@@ -177,7 +179,7 @@ game.get("/correio/:id{[0-9]+}", async (c) => {
   const content = c.get("content");
   const mail = await getMail(c.env.CONTENT, content, row.mail_id);
   const question = mail.question ? { id: mail.question, status: await state.questionStatus(c.env.DB, content, c.get("userId"), mail.question, now) } : undefined;
-  return c.html(<V.LetterPage handle={c.get("handle")} mail={mail} body={await render(c, mail.body)} question={question} />);
+  return c.html(<V.LetterPage handle={c.get("handle")} mail={mail} bodyHtml={await render(c, mail.body)} question={question} />);
 });
 
 async function composer(c: C, questionId: string, error?: string) {
@@ -267,7 +269,7 @@ game.get("/doc/:id", async (c) => {
     return c.notFound();
   }
   await state.recordDocOpened(c.env.DB, userId, doc, Date.now());
-  return c.html(<V.DocPage handle={c.get("handle")} doc={doc} body={await render(c, doc.body)} back={back} />);
+  return c.html(<V.DocPage handle={c.get("handle")} doc={doc} bodyHtml={await render(c, doc.body)} back={back} />);
 });
 
 game.get("/intranet/:gate", async (c) => {

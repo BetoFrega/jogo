@@ -52,3 +52,19 @@ describe("signed doc links", () => {
     }
   });
 });
+
+describe("doc body", () => {
+  it("is rendered from Markdown inside the paper", async () => {
+    const carol = await newPlayer("carol@example.com", "carol");
+    const html = await (await get("/busca/diario?q=Merenda%20Exemplo%20Ltda", carol)).text();
+    const link = html.match(/href="(\/doc\/contrato-12\?s=[A-Za-z0-9_-]{16})"/)![1];
+    const page = await (await get(link, carol)).text();
+    expect(page).toContain(
+      '<div class="paper"><p><strong>CONTRATANTE:</strong> Prefeitura de Vila Exemplo. <strong>CONTRATADA:</strong> Merenda Exemplo Ltda.<br>' +
+        "OBJETO: fornecimento de merenda escolar. Assina pela Secretaria de Compras:<br>Rui Exemplo.</p>" +
+        "<table><thead><tr><th>Item</th><th>Quantidade</th><th>Valor</th></tr></thead>" +
+        "<tbody><tr><td>Merenda escolar</td><td>1.200</td><td>Cr$ 4.800.000</td></tr></tbody></table>" +
+        "<blockquote><p><em>Publicado por ordem da Prefeita.</em></p></blockquote><hr></div>",
+    );
+  });
+});

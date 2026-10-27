@@ -227,7 +227,7 @@ const STATUS_TEXT: Record<Exclude<QuestionStatus, "open">, string> = {
   unavailable: "",
 };
 
-export function LetterPage(props: { handle: string; mail: Mail; body: string; question?: { id: string; status: QuestionStatus } }) {
+export function LetterPage(props: { handle: string; mail: Mail; bodyHtml: string; question?: { id: string; status: QuestionStatus } }) {
   const q = props.question;
   return (
     <Desk title={props.mail.subject} handle={props.handle}>
@@ -237,7 +237,7 @@ export function LetterPage(props: { handle: string; mail: Mail; body: string; qu
           <br />
           <b>Assunto:</b> {props.mail.subject}
         </p>
-        <div class="paper">{props.body}</div>
+        <div class="paper" dangerouslySetInnerHTML={{ __html: props.bodyHtml }} />
         {q ? (
           <p>
             {q.status === "open" ? (
@@ -346,14 +346,14 @@ export function SearchPage(props: {
   );
 }
 
-export function DocPage(props: { handle: string; doc: Doc; body: string; back: string }) {
+export function DocPage(props: { handle: string; doc: Doc; bodyHtml: string; back: string }) {
   return (
     <Desk title={props.doc.title} handle={props.handle}>
       <Win title={props.doc.title}>
         <p>
           <b>{props.doc.author}</b> — {props.doc.date}
         </p>
-        <div class="paper">{props.body}</div>
+        <div class="paper" dangerouslySetInnerHTML={{ __html: props.bodyHtml }} />
         <p>
           <a href={props.back}>« Voltar</a>
         </p>
