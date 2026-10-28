@@ -100,12 +100,17 @@ describe("canonicalNumber", () => {
 
 describe("parseComposer", () => {
   const q1 = graph.questions.find((q) => q.id === "q1")!;
-  const values = { f0_who: "Marta Exemplo", f0_rel: "nomeou", f0_obj: "", f0_org: "Merenda Exemplo", f0_num: "1", f1_who: "Ana Teste", f1_rel: "conjuge", f1_obj: "Rui Exemplo", f1_org: "" };
+  const values = { f0_who: "Marta Exemplo", f0_rel: "nomeou", f0_obj: "Merenda Exemplo", f0_num: "1", f1_who: "Ana Teste", f1_rel: "conjuge", f1_obj: "Rui Exemplo" };
+
+  it("resolves one field to a person or an org", () => {
+    const parsed = parseComposer({ ...values, f0_obj: "Merenda Exemplo Ltda." }, composerLayout(graph, q1), graph, ["org-merenda"]);
+    expect(parsed.kind === "ok" && parsed.facts.map((f) => f.object)).toEqual([{ org: "org-merenda" }, { first: "Rui", last: "Exemplo" }]);
+  });
 
   it("resolves only the orgs the player has collected, so typing cannot probe the case", () => {
     expect(parseComposer(values, composerLayout(graph, q1), graph, [])).toEqual({
       kind: "errors",
-      errors: { f0_org: "Entidade não encontrada nos documentos que você leu." },
+      errors: { f0_obj: "Não consta na lista telefônica nem nos documentos que você leu." },
     });
     expect(parseComposer(values, composerLayout(graph, q1), graph, ["org-merenda"]).kind).toBe("ok");
   });

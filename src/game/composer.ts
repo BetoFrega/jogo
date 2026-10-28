@@ -3,7 +3,7 @@
 // question fact that has a number, so the form shape never says which fact is which.
 import type { Graph, Question } from "../content/types.ts";
 import type { ComposedFact } from "./answer.ts";
-import { canonicalNumber, resolveOrg, resolvePerson, type Resolution } from "./resolve.ts";
+import { canonicalNumber, personName, resolveOrg, resolvePerson, type Resolution } from "./resolve.ts";
 
 export interface ComposerLayout {
   slots: number;
@@ -20,7 +20,7 @@ export function composerLayout(graph: Graph, question: Question): ComposerLayout
 export type ComposerValues = Record<string, string>;
 export type ComposerParse = { kind: "ok"; facts: ComposedFact[] } | { kind: "errors"; errors: Record<string, string> };
 
-const FIELDS = ["who", "rel", "obj", "org", "num"] as const;
+const FIELDS = ["who", "rel", "obj", "num"] as const;
 export const fieldName = (row: number, field: (typeof FIELDS)[number]) => `f${row}_${field}`;
 
 export function composerValues(form: Record<string, string | File | (string | File)[]>, layout: ComposerLayout): ComposerValues {
@@ -41,10 +41,15 @@ function personError(r: Resolution<unknown>): string {
     : "Nome não consta na lista telefônica.";
 }
 
-function orgError(r: Resolution<unknown>): string {
-  return r.kind === "ambiguous"
-    ? `Há mais de uma entidade com nome parecido: ${r.names.join(", ")}. Escreva o nome como consta nos documentos.`
-    : "Entidade não encontrada nos documentos que você leu.";
+/**
+ * "Com quem" is one field for a person or an entity: the name is looked up in the
+ * phonebook and among the orgs the player has collected, and must land on exactly one.
+ */
+function objectError(person: Resolution<unknown>, org: Resolution<unknown>): string {
+  const names = [person, org].flatMap((r) => (r.kind === "ambiguous" ? r.names : []));
+  return names.length
+    ? `Há mais de um nome parecido: ${names.join(", ")}. Escreva o nome como consta na lista ou nos documentos.`
+    : "Não consta na lista telefônica nem nos documentos que você leu.";
 }
 
 /** `collectedOrgs`: only orgs the player met in a document resolve, so typing never reveals the case's orgs. */
@@ -64,16 +69,15 @@ export function parseComposer(values: ComposerValues, layout: ComposerLayout, gr
     if (!relations.has(v("rel"))) fail("rel", REQUIRED);
 
     let object: ComposedFact["object"] | null = null;
-    if (v("obj") && v("org")) fail("obj", "Preencha só um: pessoa ou entidade.");
-    else if (v("obj")) {
-      const r = resolvePerson(graph.phonebook, v("obj"));
-      if (r.kind === "ok") object = { first: r.value.first, last: r.value.last };
-      else fail("obj", personError(r));
-    } else if (v("org")) {
-      const r = resolveOrg(orgs, v("org"));
-      if (r.kind === "ok") object = { org: r.value.id };
-      else fail("org", orgError(r));
-    } else fail("obj", "Preencha a pessoa ou a entidade.");
+    if (!v("obj")) fail("obj", REQUIRED);
+    else {
+      const person = resolvePerson(graph.phonebook, v("obj"));
+      const org = resolveOrg(orgs, v("obj"));
+      if (person.kind === "ok" && org.kind === "ok") fail("obj", `Há uma pessoa e uma entidade com esse nome: ${personName(person.value)}, ${org.value.name}.`);
+      else if (person.kind === "ok") object = { first: person.value.first, last: person.value.last };
+      else if (org.kind === "ok") object = { org: org.value.id };
+      else fail("obj", objectError(person, org));
+    }
 
     const numbered = i < layout.numbered;
     if (numbered && canonicalNumber(v("num")) === "") fail("num", REQUIRED);

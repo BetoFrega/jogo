@@ -379,8 +379,8 @@ export function ComposerPage(props: {
             : null}
         </p>
         <p>
-          Escreva os nomes como constam na lista telefônica. Campos com <span class="req">*</span> são obrigatórios; em “Com quem”, preencha a
-          pessoa <b>ou</b> a entidade.
+          Escreva os nomes como constam na lista telefônica, e as entidades como constam nos documentos. Campos com <span class="req">*</span> são
+          obrigatórios.
         </p>
         {props.error ? <p class="error">{props.error}</p> : null}
         <form method="post" action={`/responder/${props.questionId}`} data-autosave={autosaveKey(props.handle, props.questionId)}>
@@ -405,11 +405,8 @@ export function ComposerPage(props: {
                     ))}
                   </select>
                 </Field>
-                <Field label="Com quem (pessoa)" required name={n("obj")} error={props.errors[n("obj")]}>
-                  {text(n("obj"), "Com quem", false)}
-                </Field>
-                <Field label="ou entidade" name={n("org")} error={props.errors[n("org")]}>
-                  {text(n("org"), "Entidade", false)}
+                <Field label="Com quem (pessoa ou entidade)" required name={n("obj")} error={props.errors[n("obj")]}>
+                  {text(n("obj"), "Com quem", true)}
                 </Field>
                 {i < numbered ? (
                   <Field label="Número" required name={n("num")} error={props.errors[n("num")]}>

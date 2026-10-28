@@ -13,8 +13,8 @@ async function player() {
 
 /** q1 = { Marta Exemplo nomeou Rui Exemplo, nº 0493 } + { Rui Exemplo é cônjuge de Ana Teste }. */
 const q1Right = {
-  f0_who: "Marta Exemplo", f0_rel: "nomeou", f0_obj: "Rui Exemplo", f0_org: "", f0_num: "0493",
-  f1_who: "Ana Teste", f1_rel: "conjuge", f1_obj: "Rui Exemplo", f1_org: "",
+  f0_who: "Marta Exemplo", f0_rel: "nomeou", f0_obj: "Rui Exemplo", f0_num: "0493",
+  f1_who: "Ana Teste", f1_rel: "conjuge", f1_obj: "Rui Exemplo",
 };
 
 async function answers(handle: string) {
@@ -68,16 +68,16 @@ describe("composer form", () => {
       const html = await res.text();
       expect(html).toContain('value="Ruj Exemplo"');
       expect(html).toContain(
-        '<span class="error" id="f0_obj_err">Há mais de uma pessoa na lista telefônica com nome parecido: Rui Exemplo, Ruy Exemplo. Escreva o nome como consta na lista.</span>',
+        '<span class="error" id="f0_obj_err">Há mais de um nome parecido: Rui Exemplo, Ruy Exemplo. Escreva o nome como consta na lista ou nos documentos.</span>',
       );
     }
     {
-      const res = await postForm("/responder/q1", cookie, { ...q1Right, f0_who: "Joana Exemplo", f0_num: "nº", f1_obj: "", f1_org: "Padaria Central", f1_rel: "" });
+      const res = await postForm("/responder/q1", cookie, { ...q1Right, f0_who: "Joana Exemplo", f0_num: "nº", f1_obj: "Padaria Central", f1_rel: "" });
       expect(res.status).toBe(400);
       const html = await res.text();
       expect(html).toContain('<span class="error" id="f0_who_err">Nome não consta na lista telefônica.</span>');
       expect(html).toContain('<span class="error" id="f0_num_err">Obrigatório.</span>');
-      expect(html).toContain('<span class="error" id="f1_org_err">Entidade não encontrada nos documentos que você leu.</span>');
+      expect(html).toContain('<span class="error" id="f1_obj_err">Não consta na lista telefônica nem nos documentos que você leu.</span>');
       expect(html).toContain('<span class="error" id="f1_rel_err">Obrigatório.</span>');
       expect(html).toContain('value="Padaria Central"');
     }
