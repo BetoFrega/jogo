@@ -89,6 +89,7 @@ th, td { text-align: left; padding: 3px 6px; border: 1px solid var(--lo); }
 fieldset { border: 2px groove var(--face); margin: 0 0 12px; }
 .ask { margin: 0 0 8px; font-weight: bold; }
 .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+.row input, .row select { flex: 1; }
 ul.plain { list-style: none; padding: 0; margin: 0; }
 ul.plain li { padding: 4px 0; border-bottom: 1px dotted var(--lo); }
 
