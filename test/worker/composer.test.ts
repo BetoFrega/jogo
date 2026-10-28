@@ -62,7 +62,7 @@ describe("composer form", () => {
       expect(html).toContain('name="f0_num"');
       expect(html).not.toContain('name="f1_num"');
       expect(html).toContain('<input type="text" id="f0_who" name="f0_who" value="" aria-label="Quem" autocomplete="off" required=""');
-      expect(html).toContain(`<form method="post" action="/responder/q1" data-autosave="jogo:composer:${handle}:q1">`);
+      expect(html).toContain(`<form method="post" action="/responder/q1" data-autosave="jogo:composer:${handle}:q1" data-submit-once="Enviando à redação…">`);
       expect(html).toContain('<script>(function () {');
     }
     for (let i = 0; i < 7; i++) {

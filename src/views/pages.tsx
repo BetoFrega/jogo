@@ -325,6 +325,23 @@ function Script(props: { js: string }) {
   return <script dangerouslySetInnerHTML={{ __html: props.js }} />;
 }
 
+/** <form data-submit-once="TEXT">: on submit, the submit button turns off and shows TEXT until the next page loads. */
+const SUBMIT_ONCE_JS = `(function () {
+  var forms = document.querySelectorAll("form[data-submit-once]");
+  for (var i = 0; i < forms.length; i++) {
+    var button = forms[i].querySelector("button[type=submit]");
+    if (!button) continue;
+    var label = button.textContent;
+    forms[i].addEventListener("submit", function (b, f) {
+      return function () { b.disabled = true; b.textContent = f.getAttribute("data-submit-once"); };
+    }(button, forms[i]));
+    // Coming back with the browser's Back button restores this page as it was left.
+    window.addEventListener("pageshow", function (b, l) {
+      return function () { b.disabled = false; b.textContent = l; };
+    }(button, label));
+  }
+})();`;
+
 /** One labelled field with its error message beside it. */
 function Field(props: { label: string; required?: boolean; name: string; error?: string; children: Child }) {
   return (
@@ -385,7 +402,7 @@ export function ComposerPage(props: {
           obrigatórios.
         </p>
         {props.error ? <p class="error">{props.error}</p> : null}
-        <form method="post" action={`/responder/${props.questionId}`} data-autosave={autosaveKey(props.handle, props.questionId)}>
+        <form method="post" action={`/responder/${props.questionId}`} data-autosave={autosaveKey(props.handle, props.questionId)} data-submit-once="Enviando à redação…">
           {props.blocks.map((block, i) => {
             const n = (f: BlockField) => fieldName(i, f);
             const asks = (f: BlockField) => block.fields.includes(f);
@@ -426,6 +443,7 @@ export function ComposerPage(props: {
           <button type="submit">Enviar à redação</button>
         </form>
         <Script js={AUTOSAVE_JS} />
+        <Script js={SUBMIT_ONCE_JS} />
       </Win>
     </Desk>
   );
