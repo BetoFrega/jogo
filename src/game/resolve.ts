@@ -87,11 +87,11 @@ export function similarPhonebookPairs(phonebook: PhonebookEntry[]): [string, str
 
 /**
  * Canonical form of a typed or authored number. No tolerance: only normalization,
- * a leading "Portaria"/"nº"/"n." dropped, leading zeros dropped per segment and
+ * a leading "Portaria"/"porta"/"P"/"nº"/"n." dropped, leading zeros dropped per segment and
  * separators dropped ("Portaria nº 087/94" = "87/94" = "8794", "4.471" = "4471").
  */
 export function canonicalNumber(s: string): string {
   const tokens = normalize(s).split(" ").filter(Boolean);
-  while (tokens.length && ["portaria", "n", "no"].includes(tokens[0])) tokens.shift();
+  while (tokens.length && ["portaria", "porta", "p", "n", "no"].includes(tokens[0])) tokens.shift();
   return tokens.map((t) => (/^\d+$/.test(t) ? t.replace(/^0+(?=\d)/, "") : t)).join("");
 }

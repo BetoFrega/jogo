@@ -87,6 +87,8 @@ describe("canonicalNumber", () => {
   it("ignores separators, so thousands dots and slashes need not be typed", () => {
     expect(canonicalNumber("4.471")).toBe(canonicalNumber("4471"));
     expect(canonicalNumber("2-519")).toBe(canonicalNumber("2519"));
+    expect(canonicalNumber("P-19")).toBe(canonicalNumber("porta 19"));
+    expect(canonicalNumber("P-19")).toBe(canonicalNumber("19"));
   });
 
   it("does nothing fuzzy", () => {
