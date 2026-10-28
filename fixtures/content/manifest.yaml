@@ -8,6 +8,7 @@ engines:
     name: "Fórum Vila Exemplo"
     fields: [autor, assunto]
     max_results: 3
+    help: "Procure por **assunto** ou por apelido do autor. Uma palavra basta: *merenda*."
 gates:
   - id: prefeitura
     name: "Intranet da Prefeitura"

@@ -376,6 +376,7 @@ export function SearchPage(props: {
   handle: string;
   engine: Engine;
   query: string;
+  helpHtml?: string;
   outcome: { kind: "none" } | { kind: "empty_query" } | { kind: "too_many" } | { kind: "results"; docs: (Doc & { href: string })[] };
 }) {
   const o = props.outcome;
@@ -387,6 +388,7 @@ export function SearchPage(props: {
           <input id="q" type="search" name="q" value={props.query} autofocus />
           <button type="submit">Consultar</button>
         </form>
+        {o.kind === "none" && props.helpHtml ? <div class="paper" dangerouslySetInnerHTML={{ __html: props.helpHtml }} /> : null}
         {o.kind === "empty_query" ? <p class="error">DIGITE UM TERMO DE CONSULTA.</p> : null}
         {o.kind === "too_many" ? <p class="error">CONSULTA EXCEDEU O LIMITE DE REGISTROS. REFINE OS TERMOS.</p> : null}
         {o.kind === "results" && o.docs.length === 0 ? <p class="error">NENHUM REGISTRO ENCONTRADO.</p> : null}

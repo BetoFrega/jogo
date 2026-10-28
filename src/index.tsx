@@ -254,7 +254,10 @@ game.get("/busca/:engine", async (c) => {
   const engine = content.manifest.engines.find((e) => e.id === c.req.param("engine"));
   if (!engine) return c.notFound();
   const query = c.req.query("q");
-  if (query === undefined) return c.html(<V.SearchPage handle={c.get("handle")} engine={engine} query="" outcome={{ kind: "none" }} />);
+  if (query === undefined) {
+    const helpHtml = engine.help ? renderMarkdown(engine.help) : undefined;
+    return c.html(<V.SearchPage handle={c.get("handle")} engine={engine} query="" helpHtml={helpHtml} outcome={{ kind: "none" }} />);
+  }
   const outcome = search(engine, content.indexes[engine.id], query);
   const shown =
     outcome.kind === "results"

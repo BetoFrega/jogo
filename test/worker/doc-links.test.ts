@@ -46,3 +46,13 @@ describe("doc body", () => {
     );
   });
 });
+
+describe("search page help", () => {
+  it("shows the engine's help as Markdown before the first query, and not on results", async () => {
+    const dave = await newPlayer("dave@example.com", "dave");
+    const front = await (await get("/busca/forum", dave)).text();
+    expect(front).toContain("Procure por <strong>assunto</strong> ou por apelido do autor. Uma palavra basta: <em>merenda</em>.");
+    const results = await (await get("/busca/forum?q=merenda", dave)).text();
+    expect(results).not.toContain("Procure por");
+  });
+});

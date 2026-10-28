@@ -40,6 +40,7 @@ engines:
     name: "Diário Oficial de Exemplo"   # fictional display name
     fields: [pessoa, numero_ato, empresa]   # frontmatter keys this engine indexes
     max_results: 5          # more matches → "limit exceeded" error, no count
+    help: "Busque por **nome**, **número** ou **empresa**."   # optional Markdown, shown before the first query
   - id: forum
     name: "Fórum Exemplo"
     fields: [autor, assunto]

@@ -78,6 +78,7 @@ export function compile(sourceDir: string, version: number, warn: (message: stri
 
   // --- unique ids ---
   checkUnique("engine", engines.map((e) => e.id), fail);
+  for (const e of engines) if (e.help !== undefined && typeof e.help !== "string") fail(`engine ${e.id}: help must be text`);
   checkUnique("gate", gates.map((g) => g.id), fail);
   checkUnique("relation", relations.map((r) => r.id), fail);
   checkUnique("org", orgs.map((o) => o.id), fail);

@@ -5,6 +5,7 @@ export interface Engine {
   name: string;
   fields: string[];
   max_results: number;
+  help?: string; // Markdown shown on the search page before the first query
 }
 
 export interface GateDef {
