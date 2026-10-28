@@ -93,5 +93,6 @@ export function similarPhonebookPairs(phonebook: PhonebookEntry[]): [string, str
 export function canonicalNumber(s: string): string {
   const tokens = normalize(s).split(" ").filter(Boolean);
   while (tokens.length && ["portaria", "porta", "p", "n", "no"].includes(tokens[0])) tokens.shift();
+  if (tokens.length) tokens[0] = tokens[0].replace(/^p(?=\d+$)/, ""); // "P19" as typed together
   return tokens.map((t) => (/^\d+$/.test(t) ? t.replace(/^0+(?=\d)/, "") : t)).join("");
 }

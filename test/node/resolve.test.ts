@@ -89,6 +89,7 @@ describe("canonicalNumber", () => {
     expect(canonicalNumber("2-519")).toBe(canonicalNumber("2519"));
     expect(canonicalNumber("P-19")).toBe(canonicalNumber("porta 19"));
     expect(canonicalNumber("P-19")).toBe(canonicalNumber("19"));
+    expect(canonicalNumber("P19")).toBe(canonicalNumber("19"));
   });
 
   it("does nothing fuzzy", () => {
