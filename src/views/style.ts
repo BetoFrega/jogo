@@ -64,6 +64,15 @@ table { border-collapse: collapse; width: 100%; background: #fff; }
 th, td { text-align: left; padding: 3px 6px; border: 1px solid var(--lo); }
 .error { color: var(--alert); font-weight: bold; font-family: "Courier New", monospace; }
 .notice { font-family: "Courier New", monospace; }
+/* Waiting dots fill in one by one, like a slow modem; static for reduced motion. */
+.dots span { animation: 2s steps(1, end) infinite; }
+.dots span:nth-child(1) { animation-name: dot1; }
+.dots span:nth-child(2) { animation-name: dot2; }
+.dots span:nth-child(3) { animation-name: dot3; }
+@keyframes dot1 { 0% { opacity: 0; } 25% { opacity: 1; } }
+@keyframes dot2 { 0% { opacity: 0; } 50% { opacity: 1; } }
+@keyframes dot3 { 0% { opacity: 0; } 75% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dots span { animation: none; } }
 .req { color: var(--alert); font-weight: bold; }
 .unread { font-weight: bold; }
 fieldset { border: 2px groove var(--face); margin: 0 0 12px; }

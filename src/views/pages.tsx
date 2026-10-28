@@ -219,7 +219,14 @@ export function MailboxPage(props: {
             Resposta enviada à redação.
           </p>
         ) : null}
-        {props.pending ? <p class="notice">Aguardando retorno da redação…</p> : null}
+        {props.pending ? <p class="notice">
+            Aguardando retorno da redação
+            <span class="dots" aria-hidden="true">
+              <span>.</span>
+              <span>.</span>
+              <span>.</span>
+            </span>
+          </p> : null}
         <ul class="plain">
           {props.items.map((i) => (
             <li class={i.unread ? "unread" : ""}>
