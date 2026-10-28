@@ -54,6 +54,9 @@ describe("search page help", () => {
     expect(front).toContain("Procure por <strong>assunto</strong> ou por apelido do autor. Uma palavra basta: <em>merenda</em>.");
     const results = await (await get("/busca/forum?q=merenda", dave)).text();
     expect(results).not.toContain("Procure por");
+    // Too many results is told in the system's own voice, with the engine's limit.
+    const tooMany = await (await get("/busca/diario?q=Marta%20Exemplo", dave)).text();
+    expect(tooMany).toContain("SISTEMA EM FASE DE IMPLANTAÇÃO. A EXIBIÇÃO DE RESPOSTAS COM MAIS DE 2 REGISTROS AINDA ESTÁ EM DESENVOLVIMENTO.");
     // Closing a window goes back within the site, falling back to the desk.
     expect(front).toContain(`<a href="/" aria-label="Fechar" onclick="if (document.referrer.indexOf(location.origin + &#39;/&#39;) === 0) { history.back(); return false; }">`);
   });

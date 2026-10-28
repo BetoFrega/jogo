@@ -445,7 +445,11 @@ export function SearchPage(props: {
         </form>
         {o.kind === "none" && props.helpHtml ? <div class="paper" dangerouslySetInnerHTML={{ __html: props.helpHtml }} /> : null}
         {o.kind === "empty_query" ? <p class="error">DIGITE UM TERMO DE CONSULTA.</p> : null}
-        {o.kind === "too_many" ? <p class="error">CONSULTA EXCEDEU O LIMITE DE REGISTROS. REFINE OS TERMOS.</p> : null}
+        {o.kind === "too_many" ? (
+          <p class="error">
+            SISTEMA EM FASE DE IMPLANTAÇÃO. A EXIBIÇÃO DE RESPOSTAS COM MAIS DE {props.engine.max_results} REGISTROS AINDA ESTÁ EM DESENVOLVIMENTO. REFINE A CONSULTA.
+          </p>
+        ) : null}
         {o.kind === "results" && o.docs.length === 0 ? <p class="error">NENHUM REGISTRO ENCONTRADO.</p> : null}
         {o.kind === "results" && o.docs.length > 0 ? (
           <ul class="plain">
