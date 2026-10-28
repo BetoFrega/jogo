@@ -246,6 +246,7 @@ export function compile(sourceDir: string, version: number, warn: (message: stri
     gates: gateListings,
     start_mail: manifestSrc.start_mail,
     words,
+    doc_titles: Object.fromEntries(docs.map((d) => [d.id, { title: d.title, engine: d.engine }])),
   };
   put("graph.json", graph);
   for (const d of docs) {

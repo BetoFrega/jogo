@@ -203,14 +203,15 @@ page works without it.
 content/current                   → "v<N>" (plain text)
 content/v<N>/manifest.json        → manifest + { version, files: { path: sha256 } }
 content/v<N>/index/<engine>.json  → { "<normalized key>": ["doc-id", ...] }
-content/v<N>/graph.json           → { relations, orgs, facts, questions, phonebook, gates, start_mail, words }
+content/v<N>/graph.json           → { relations, orgs, facts, questions, phonebook, gates, start_mail, words, doc_titles }
 content/v<N>/docs/<id>.json       → { id, engine, title, author, date, body, collect }
 content/v<N>/mail/<id>.json       → { id, from, subject, question?, body }
 ```
 
 In `graph.json`, `gates[]` also carries `docs: [{ id, title, date }]` (the
 intranet pages listed after unlock) and `words` is `words.txt`, which the Worker
-needs to derive gate passwords.
+needs to derive gate passwords. `doc_titles` maps every doc id to `{ title, engine }`
+so the Worker can list opened docs without fetching each one.
 
 The version `N` is the compiler's `--version` argument. The Worker reads
 `content/current`, loads manifest, indexes and graph once per isolate and per

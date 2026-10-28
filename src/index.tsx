@@ -174,10 +174,12 @@ function sourceName(content: Content, engine: string): string {
 async function history(c: C): Promise<V.HistoryEntry[]> {
   const content = c.get("content");
   const ids = await state.openedDocIds(c.env.DB, c.get("userId"));
-  const docs = await Promise.all(ids.map((id) => getDoc(c.env.CONTENT, content, id)));
-  return Promise.all(
-    docs.filter((d) => d !== null).map(async (d) => ({ id: d.id, title: d.title, source: sourceName(content, d.engine), href: await docHref(c, d) })),
-  );
+  // Titles come from graph.json (loaded once per version), not one R2 fetch per doc.
+  const docs = ids.flatMap((id) => {
+    const d = content.graph.doc_titles[id];
+    return d ? [{ id, ...d }] : []; // a doc removed in a newer content version is skipped
+  });
+  return Promise.all(docs.map(async (d) => ({ id: d.id, title: d.title, source: sourceName(content, d.engine), href: await docHref(c, d) })));
 }
 
 /** Every fiction page renders here, so `Desk` always has the player's history. */

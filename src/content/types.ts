@@ -82,6 +82,8 @@ export interface Graph {
   start_mail: string;
   /** Word list for gate passwords (words.txt). */
   words: string[];
+  /** Title and engine of every doc, so lists (the Histórico) need no per-doc fetch. */
+  doc_titles: Record<string, { title: string; engine: string }>;
 }
 
 export type Index = Record<string, string[]>;
