@@ -347,6 +347,9 @@ export function ComposerPage(props: {
   handle: string;
   questionId: string;
   subject: string;
+  from: string;
+  /** The letter that asks the question, so the player answers without leaving the form. */
+  letterHtml: string;
   layout: ComposerLayout;
   relations: Relation[];
   values: ComposerValues;
@@ -370,6 +373,12 @@ export function ComposerPage(props: {
   return (
     <Desk title="Responder" handle={props.handle}>
       <Win title={`Responder — ${props.subject}`}>
+        <details class="letter" open>
+          <summary>
+            Carta de {props.from}: {props.subject}
+          </summary>
+          <div class="paper" dangerouslySetInnerHTML={{ __html: props.letterHtml }} />
+        </details>
         <p>
           Monte {slots === 1 ? "o fato" : `os ${slots} fatos`} que respondem à pergunta, em qualquer ordem. A redação avalia a resposta inteira.
           {numbered > 0

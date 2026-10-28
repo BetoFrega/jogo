@@ -229,6 +229,8 @@ async function composer(c: C, questionId: string, form?: { values: ComposerValue
       handle={c.get("handle")}
       questionId={questionId}
       subject={mail.subject}
+      from={mail.from}
+      letterHtml={await render(c, mail.body)}
       layout={composerLayout(content.graph, question)}
       relations={content.graph.relations}
       values={form?.values ?? {}}

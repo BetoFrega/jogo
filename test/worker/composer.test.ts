@@ -53,6 +53,9 @@ describe("composer form", () => {
       const res = await get("/responder/q1", cookie);
       expect(res.status).toBe(200);
       const html = await res.text();
+      // The asking letter is on the form itself, with placeholders filled.
+      expect(html).toContain("<summary>Carta de Editor Exemplo: Primeira pauta</summary>");
+      expect(html).toContain(`Oi, ${handle}. Bem-vindo à redação.`);
       expect(html).toContain("<legend>Fato 1 — com número</legend>");
       expect(html).toContain("<legend>Fato 2</legend>");
       expect(html).toContain('name="f0_num"');

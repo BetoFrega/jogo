@@ -71,6 +71,9 @@ button:active { border-color: var(--dark) var(--hi) var(--hi) var(--dark); }
 table { border-collapse: collapse; width: 100%; background: #fff; }
 th, td { text-align: left; padding: 3px 6px; border: 1px solid var(--lo); }
 .error { color: var(--alert); font-weight: bold; font-family: "Courier New", monospace; }
+.letter { margin: 0 0 1em; }
+.letter summary { cursor: pointer; font-weight: bold; margin-bottom: 0.5em; }
+.letter .paper { max-height: 40vh; overflow-y: auto; }
 .notice { font-family: "Courier New", monospace; }
 /* Waiting dots fill in one by one, like a slow modem; static for reduced motion. */
 .dots span { animation: 2s steps(1, end) infinite; }
