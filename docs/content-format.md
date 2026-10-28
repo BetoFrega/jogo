@@ -97,6 +97,12 @@ only when the fact has one). A block must ask at least 3 fields, so it can
 leave out at most one part of a numbered fact and none of an unnumbered one;
 the `ask` text gives the part left out. These floors keep the difficulty.
 
+The four fields are fixed for now, on purpose. Facts are expected to gain
+fields (a date, a value, a place). Add them when the first story beat needs
+one: then turn the fields into a list where each kind defines its label, how
+typed input resolves and how it compares. Review the 3-field floor at the same
+time, since with more fields it no longer means "almost everything".
+
 A submitted answer has one entry per block. Each entry is completed with the
 parts the block did not ask, taken from its fact, and compared with that fact
 by the **resolved** subject phonebook entry, relation id, resolved object
