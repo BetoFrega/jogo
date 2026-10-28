@@ -54,5 +54,7 @@ describe("search page help", () => {
     expect(front).toContain("Procure por <strong>assunto</strong> ou por apelido do autor. Uma palavra basta: <em>merenda</em>.");
     const results = await (await get("/busca/forum?q=merenda", dave)).text();
     expect(results).not.toContain("Procure por");
+    // Closing a window goes back within the site, falling back to the desk.
+    expect(front).toContain(`<a href="/" aria-label="Fechar" onclick="if (document.referrer.indexOf(location.origin + &#39;/&#39;) === 0) { history.back(); return false; }">`);
   });
 });

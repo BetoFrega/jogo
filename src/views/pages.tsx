@@ -50,12 +50,15 @@ export function Desk(props: { title: string; handle: string; children: Child; re
   );
 }
 
+const CLOSE_JS = "if (document.referrer.indexOf(location.origin + '/') === 0) { history.back(); return false; }";
+
 export function Win(props: { title: string; children: Child }) {
   return (
     <section class="window">
       <div class="titlebar">
         <span>{props.title}</span>
-        <a href="/" aria-label="Fechar">
+        {/* Back to the previous page of this site; plain link to the desk without JS or when arriving from elsewhere. */}
+        <a href="/" aria-label="Fechar" onclick={CLOSE_JS}>
           ×
         </a>
       </div>
