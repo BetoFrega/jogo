@@ -29,6 +29,14 @@ body.fiction {
 }
 .titlebar a { color: #fff; text-decoration: none; border: 1px outset #fff; background: var(--face); color: var(--ink); padding: 0 6px; }
 .content { padding: 12px; overflow-wrap: anywhere; }
+/* Windows on the left, the "Histórico" panel on the right; stacked below on narrow screens. */
+.desk { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; align-items: start; }
+.desk > .main { min-width: 0; }
+.window.history { margin: 0; max-width: none; }
+.history .content { padding: 8px; }
+.history .src { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #303030; }
+.history a[aria-current] { font-weight: bold; }
+@media (max-width: 699px) { .desk { grid-template-columns: minmax(0, 1fr); } }
 .paper {
   background: var(--paper); border: 2px inset var(--face); padding: 12px;
   font-family: "Courier New", Courier, monospace; white-space: pre-wrap;

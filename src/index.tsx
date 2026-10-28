@@ -1,4 +1,6 @@
 import { Hono, type Context } from "hono";
+import type { JSX } from "hono/jsx/jsx-runtime";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { createMiddleware } from "hono/factory";
 import { createAuth, MAGIC_LINK_PATH, type Auth } from "./auth.ts";
 import { getDoc, getMail, loadContent, type Content } from "./content/store.ts";
@@ -154,13 +156,42 @@ function gatePasswordFor(c: C) {
     return derivePassword(c.env.GATE_SECRET_V1, c.get("userId"), gateId, gate.format, graph.words);
   };
 }
+/** Where a doc opens: a signed link for engine docs, the plain id for intranet docs (gated by the unlock). */
+async function docHref(c: C, doc: { id: string; engine: string }): Promise<string> {
+  if (doc.engine.startsWith(GATE_ENGINE_PREFIX)) return `/doc/${doc.id}`;
+  return `/doc/${doc.id}?s=${await signDocLink(c.env.DOC_LINK_SECRET, c.get("userId"), doc.id)}`;
+}
+
+function sourceName(content: Content, engine: string): string {
+  const name = engine.startsWith(GATE_ENGINE_PREFIX)
+    ? content.graph.gates.find((g) => `${GATE_ENGINE_PREFIX}${g.id}` === engine)?.name
+    : content.manifest.engines.find((e) => e.id === engine)?.name;
+  if (name === undefined) throw new Error(`doc engine ${engine} is not in content ${content.version}`);
+  return name;
+}
+
+/** Opened docs, most recent first; docs missing from the current content version are skipped. */
+async function history(c: C): Promise<V.HistoryEntry[]> {
+  const content = c.get("content");
+  const ids = await state.openedDocIds(c.env.DB, c.get("userId"));
+  const docs = await Promise.all(ids.map((id) => getDoc(c.env.CONTENT, content, id)));
+  return Promise.all(
+    docs.filter((d) => d !== null).map(async (d) => ({ id: d.id, title: d.title, source: sourceName(content, d.engine), href: await docHref(c, d) })),
+  );
+}
+
+/** Every fiction page renders here, so `Desk` always has the player's history. */
+async function desk(c: C, page: JSX.Element, status?: ContentfulStatusCode) {
+  return c.html(<V.HistoryContext.Provider value={await history(c)}>{page}</V.HistoryContext.Provider>, status);
+}
+
 // Placeholders first, then Markdown, which escapes everything (the handle is user input).
 const render = async (c: C, text: string) => renderMarkdown(await renderPlaceholders(text, c.get("handle"), gatePasswordFor(c)));
 
 game.get("/", async (c) => {
   const { manifest, graph } = c.get("content");
   const mail = await state.visibleMail(c.env.DB, c.get("userId"), Date.now());
-  return c.html(<V.DesktopPage handle={c.get("handle")} unread={mail.filter((m) => m.read_at === null).length} engines={manifest.engines} gates={graph.gates} />);
+  return desk(c, <V.DesktopPage handle={c.get("handle")} unread={mail.filter((m) => m.read_at === null).length} engines={manifest.engines} gates={graph.gates} />);
 });
 
 game.get("/correio", async (c) => {
@@ -173,7 +204,7 @@ game.get("/correio", async (c) => {
   // ?enviado=<question id> after a successful send; only a real question id clears its draft.
   const sent = c.req.query("enviado");
   const clearDraft = c.get("content").graph.questions.some((q) => q.id === sent) ? autosaveKey(c.get("handle"), sent!) : undefined;
-  return c.html(<V.MailboxPage handle={c.get("handle")} items={items} pending={pending} sent={sent !== undefined} clearDraft={clearDraft} />);
+  return desk(c, <V.MailboxPage handle={c.get("handle")} items={items} pending={pending} sent={sent !== undefined} clearDraft={clearDraft} />);
 });
 
 game.get("/correio/:id{[0-9]+}", async (c) => {
@@ -183,14 +214,15 @@ game.get("/correio/:id{[0-9]+}", async (c) => {
   const content = c.get("content");
   const mail = await getMail(c.env.CONTENT, content, row.mail_id);
   const question = mail.question ? { id: mail.question, status: await state.questionStatus(c.env.DB, content, c.get("userId"), mail.question, now) } : undefined;
-  return c.html(<V.LetterPage handle={c.get("handle")} mail={mail} bodyHtml={await render(c, mail.body)} question={question} />);
+  return desk(c, <V.LetterPage handle={c.get("handle")} mail={mail} bodyHtml={await render(c, mail.body)} question={question} />);
 });
 
 async function composer(c: C, questionId: string, form?: { values: ComposerValues; errors?: Record<string, string>; error: string }) {
   const content = c.get("content");
   const question = content.graph.questions.find((q) => q.id === questionId)!;
   const mail = await getMail(c.env.CONTENT, content, question.mail);
-  return c.html(
+  return desk(
+    c,
     <V.ComposerPage
       handle={c.get("handle")}
       questionId={questionId}
@@ -242,11 +274,7 @@ game.post("/responder/:question", async (c) => {
 
 async function signedResults(c: C, docIds: string[]) {
   const docs = await Promise.all(docIds.map((id) => getDoc(c.env.CONTENT, c.get("content"), id)));
-  return Promise.all(
-    docs
-      .filter((d) => d !== null)
-      .map(async (d) => ({ ...d, href: `/doc/${d.id}?s=${await signDocLink(c.env.DOC_LINK_SECRET, c.get("userId"), d.id)}` })),
-  );
+  return Promise.all(docs.filter((d) => d !== null).map(async (d) => ({ ...d, href: await docHref(c, d) })));
 }
 
 game.get("/busca/:engine", async (c) => {
@@ -256,14 +284,14 @@ game.get("/busca/:engine", async (c) => {
   const query = c.req.query("q");
   if (query === undefined) {
     const helpHtml = engine.help ? renderMarkdown(engine.help) : undefined;
-    return c.html(<V.SearchPage handle={c.get("handle")} engine={engine} query="" helpHtml={helpHtml} outcome={{ kind: "none" }} />);
+    return desk(c, <V.SearchPage handle={c.get("handle")} engine={engine} query="" helpHtml={helpHtml} outcome={{ kind: "none" }} />);
   }
   const outcome = search(engine, content.indexes[engine.id], query);
   const shown =
     outcome.kind === "results"
       ? { kind: "results" as const, docs: await signedResults(c, outcome.docIds) }
       : outcome;
-  return c.html(<V.SearchPage handle={c.get("handle")} engine={engine} query={query} outcome={shown} />);
+  return desk(c, <V.SearchPage handle={c.get("handle")} engine={engine} query={query} outcome={shown} />);
 });
 
 game.get("/doc/:id", async (c) => {
@@ -282,14 +310,14 @@ game.get("/doc/:id", async (c) => {
     return c.notFound();
   }
   await state.recordDocOpened(c.env.DB, userId, doc, Date.now());
-  return c.html(<V.DocPage handle={c.get("handle")} doc={doc} bodyHtml={await render(c, doc.body)} back={back} />);
+  return desk(c, <V.DocPage handle={c.get("handle")} doc={doc} bodyHtml={await render(c, doc.body)} back={back} />);
 });
 
 game.get("/intranet/:gate", async (c) => {
   const gate = c.get("content").graph.gates.find((g) => g.id === c.req.param("gate"));
   if (!gate) return c.notFound();
   const unlocked = await state.isGateUnlocked(c.env.DB, c.get("userId"), gate.id);
-  return c.html(unlocked ? <V.GateIndexPage handle={c.get("handle")} gate={gate} /> : <V.GateLoginPage handle={c.get("handle")} gate={gate} error={false} />);
+  return desk(c, unlocked ? <V.GateIndexPage handle={c.get("handle")} gate={gate} /> : <V.GateLoginPage handle={c.get("handle")} gate={gate} error={false} />);
 });
 
 game.post("/intranet/:gate", async (c) => {
@@ -299,7 +327,7 @@ game.post("/intranet/:gate", async (c) => {
   const form = await c.req.parseBody();
   const input = typeof form.senha === "string" ? form.senha : "";
   if (!(await verifyPassword(input, c.env.GATE_SECRET_V1, c.get("userId"), gate.id, gate.format, graph.words))) {
-    return c.html(<V.GateLoginPage handle={c.get("handle")} gate={gate} error={true} />, 403);
+    return desk(c, <V.GateLoginPage handle={c.get("handle")} gate={gate} error={true} />, 403);
   }
   await state.unlockGate(c.env.DB, c.get("userId"), gate.id, Date.now());
   return c.redirect(`/intranet/${gate.id}`);
@@ -307,7 +335,7 @@ game.post("/intranet/:gate", async (c) => {
 
 game.get("/lista", (c) => {
   const entries = [...c.get("content").graph.phonebook].sort((a, b) => `${a.last} ${a.first}`.localeCompare(`${b.last} ${b.first}`, "pt-BR"));
-  return c.html(<V.PhonebookPage handle={c.get("handle")} entries={entries} />);
+  return desk(c, <V.PhonebookPage handle={c.get("handle")} entries={entries} />);
 });
 
 app.route("/", game);

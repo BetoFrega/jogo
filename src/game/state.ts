@@ -74,7 +74,10 @@ export async function hasPendingReply(db: D1Database, userId: string, now: numbe
 
 export async function recordDocOpened(db: D1Database, userId: string, doc: Doc, now: number): Promise<void> {
   await db.batch([
-    db.prepare("INSERT OR IGNORE INTO seen_doc (user_id, doc_id, seen_at) VALUES (?, ?, ?)").bind(userId, doc.id, now),
+    // Reopening moves the doc to the top of the history.
+    db
+      .prepare("INSERT INTO seen_doc (user_id, doc_id, seen_at) VALUES (?, ?, ?) ON CONFLICT (user_id, doc_id) DO UPDATE SET seen_at = excluded.seen_at")
+      .bind(userId, doc.id, now),
     ...doc.collect.numbers.map((n) =>
       db.prepare("INSERT OR IGNORE INTO collected_term (user_id, kind, value, collected_at) VALUES (?, 'number', ?, ?)").bind(userId, n, now),
     ),
@@ -82,6 +85,12 @@ export async function recordDocOpened(db: D1Database, userId: string, doc: Doc, 
       db.prepare("INSERT OR IGNORE INTO collected_term (user_id, kind, value, collected_at) VALUES (?, 'org', ?, ?)").bind(userId, o, now),
     ),
   ]);
+}
+
+/** Ids of the docs this player has opened, most recently opened first. */
+export async function openedDocIds(db: D1Database, userId: string): Promise<string[]> {
+  const { results } = await db.prepare("SELECT doc_id FROM seen_doc WHERE user_id = ? ORDER BY seen_at DESC").bind(userId).all<{ doc_id: string }>();
+  return results.map((r) => r.doc_id);
 }
 
 export async function collectedTerms(db: D1Database, userId: string): Promise<{ numbers: string[]; orgs: string[] }> {

@@ -1,6 +1,6 @@
 // Server-rendered pages. Player-facing text is Brazilian Portuguese; inside the
 // fiction (1994) never name real technologies.
-import type { Child } from "hono/jsx";
+import { createContext, useContext, type Child } from "hono/jsx";
 import type { Doc, Engine, GateListing, Mail, PhonebookEntry, Relation } from "../content/types.ts";
 import { fieldName, type ComposerLayout, type ComposerValues } from "../game/composer.ts";
 import type { QuestionStatus } from "../game/state.ts";
@@ -25,7 +25,21 @@ export function MetaPage(props: { title: string; children: Child; head?: Child }
   );
 }
 
-export function Desk(props: { title: string; handle: string; children: Child; refreshSeconds?: number }) {
+/** One opened doc in the "Histórico" panel. */
+export interface HistoryEntry {
+  id: string;
+  title: string;
+  /** Engine or intranet name. */
+  source: string;
+  href: string;
+}
+
+/** The player's history, provided once per response by the route layer (see `desk()` in index.tsx). */
+export const HistoryContext = createContext<HistoryEntry[] | null>(null);
+
+export function Desk(props: { title: string; handle: string; children: Child; refreshSeconds?: number; currentDocId?: string }) {
+  const history = useContext(HistoryContext);
+  if (!history) throw new Error("Desk rendered without HistoryContext: render fiction pages through desk() in index.tsx");
   return (
     <html lang="pt-BR">
       <head>
@@ -44,9 +58,40 @@ export function Desk(props: { title: string; handle: string; children: Child; re
             Repórter: <b>{props.handle}</b> · <a href="/conta">Conta</a>
           </span>
         </div>
-        {props.children}
+        <div class="desk">
+          <div class="main">{props.children}</div>
+          <HistoryPanel entries={history} currentDocId={props.currentDocId} />
+        </div>
       </body>
     </html>
+  );
+}
+
+function HistoryPanel(props: { entries: HistoryEntry[]; currentDocId?: string }) {
+  return (
+    <aside class="window history" aria-labelledby="historico">
+      <div class="titlebar">
+        <span id="historico">Histórico</span>
+      </div>
+      <div class="content">
+        {props.entries.length === 0 ? (
+          <p class="notice">Nenhum documento consultado.</p>
+        ) : (
+          <ul class="plain">
+            {props.entries.map((e) => (
+              <li>
+                <a href={e.href} aria-current={e.id === props.currentDocId ? "page" : undefined}>
+                  {e.title}
+                </a>
+                <span class="src" title={e.source}>
+                  {e.source}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -418,7 +463,7 @@ export function SearchPage(props: {
 
 export function DocPage(props: { handle: string; doc: Doc; bodyHtml: string; back: string }) {
   return (
-    <Desk title={props.doc.title} handle={props.handle}>
+    <Desk title={props.doc.title} handle={props.handle} currentDocId={props.doc.id}>
       <Win title={props.doc.title}>
         <p>
           <b>{props.doc.author}</b> — {props.doc.date}
