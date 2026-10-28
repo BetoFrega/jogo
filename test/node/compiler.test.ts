@@ -102,9 +102,23 @@ describe("compile checks (broken fixtures)", () => {
   });
 
   it("rejects question facts without evidence", () => {
-    expect(problemsAfter((d) => edit(d, "docs/forum/casamento.md", "evidence: [f-conjuge]\n", ""))).toContain(
+    expect(problemsAfter((d) => edit(d, "docs/forum/casamento.md", "evidence: [f-conjuge, f-irmaos]\n", "evidence: [f-irmaos]\n"))).toContain(
       "fact f-conjuge: used by a question but no doc lists it as evidence",
     );
+  });
+
+  it("holds every question to at least 3 blocks of at least 3 fields each", () => {
+    const problems = problemsAfter((d) => {
+      edit(d, "graph.yaml", '      - { ask: "Quem é parente da esposa do nomeado?", fact: f-irmaos }\n', "");
+      edit(d, "graph.yaml", "fact: f-pagamento, fields: [rel, obj, num]", "fact: f-pagamento, fields: [obj, num]");
+      edit(d, "graph.yaml", '{ ask: "Quem é sócia de qual empresa?", fact: f-socia }', '{ ask: "", fact: f-socia, fields: [who, rel, num] }');
+    });
+    expect(problems).toEqual([
+      "question q1: needs at least 3 blocks, has 2",
+      "question q2 block 1: needs an \"ask\" text",
+      'question q2 block 1: asks "num" but fact f-socia has no number',
+      "question q2 block 2: needs at least 3 fields, has 2",
+    ]);
   });
 
   it("rejects unknown placeholders", () => {

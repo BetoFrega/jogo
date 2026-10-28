@@ -2,7 +2,7 @@
 // rules (mail delay, answer rate limit) are testable.
 import type { Content } from "../content/store.ts";
 import type { Doc } from "../content/types.ts";
-import { isAccepted, type ComposedFact } from "./answer.ts";
+import { isAccepted, type ComposedBlock } from "./answer.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 export const HANDLE_RE = /^[A-Za-z0-9_.-]{3,16}$/;
@@ -141,7 +141,7 @@ export async function questionStatus(db: D1Database, content: Content, userId: s
 export type SubmitResult =
   | { kind: "submitted" }
   | { kind: "rate_limited" }
-  | { kind: "invalid" } // wrong slot count
+  | { kind: "invalid" } // wrong block count
   | { kind: "not_open"; status: QuestionStatus };
 
 export async function submitAnswer(
@@ -149,7 +149,7 @@ export async function submitAnswer(
   content: Content,
   userId: string,
   questionId: string,
-  facts: ComposedFact[],
+  answers: ComposedBlock[],
   now: number,
   random: () => number = Math.random,
 ): Promise<SubmitResult> {
@@ -163,15 +163,15 @@ export async function submitAnswer(
     .first<{ n: number }>();
   if ((count?.n ?? 0) >= content.manifest.answers_per_hour) return { kind: "rate_limited" };
 
-  if (facts.length !== question.facts.length) return { kind: "invalid" };
+  if (answers.length !== question.blocks.length) return { kind: "invalid" };
 
-  const accepted = isAccepted(content.graph, question, facts);
+  const accepted = isAccepted(content.graph, question, answers);
   const [min, max] = content.manifest.reply_delay_seconds;
   const delaySeconds = min + Math.floor(random() * (max - min + 1));
   await db.batch([
     db
       .prepare("INSERT INTO answer (user_id, question_id, facts, accepted, created_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(userId, questionId, JSON.stringify(facts), accepted ? 1 : 0, now),
+      .bind(userId, questionId, JSON.stringify(answers), accepted ? 1 : 0, now),
     db
       .prepare("INSERT INTO mail (user_id, mail_id, respond_at) VALUES (?, ?, ?)")
       .bind(userId, accepted ? question.accept_mail : question.reject_mail, now + delaySeconds * 1000),

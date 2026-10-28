@@ -35,6 +35,7 @@ async function openDocs(...ids: string[]) {
 const q1Right: ComposedFact[] = [
   { subject: { first: "Marta", last: "Exemplo" }, relation: "nomeou", object: { first: "Rui", last: "Exemplo" }, number: "0493" },
   { subject: { first: "Ana", last: "Teste" }, relation: "conjuge", object: { first: "Rui", last: "Exemplo" } },
+  { subject: { first: "Beto", last: "Teste" }, relation: "irmao_de", object: { first: "Ana", last: "Teste" } },
 ];
 
 describe("search over the published fixture", () => {
@@ -77,7 +78,7 @@ describe("answers", () => {
 
   it("delivers the reject mail for a wrong batch and lets the player retry", async () => {
     await openDocs("ato-0493");
-    const wrong = [q1Right[0], { ...q1Right[1], object: { first: "Beto", last: "Teste" } }];
+    const wrong = [q1Right[0], { ...q1Right[1], object: { first: "Beto", last: "Teste" } }, q1Right[2]];
     expect(await submitAnswer(DB, content, userId, "q1", wrong, T0, () => 0)).toEqual({ kind: "submitted" });
     expect(await submitAnswer(DB, content, userId, "q1", q1Right, T0 + 1000, () => 0)).toEqual({ kind: "not_open", status: "awaiting_reply" });
     expect(await mailIds(T0 + 2000)).toEqual(["recusa", "carta-01"]);
@@ -97,7 +98,7 @@ describe("answers", () => {
 
   it("rate-limits answers per player per hour", async () => {
     await openDocs("ato-0493");
-    const wrong = [q1Right[0], q1Right[0]];
+    const wrong = [q1Right[0], q1Right[0], q1Right[0]];
     let t = T0;
     for (let i = 0; i < content.manifest.answers_per_hour; i++) {
       expect(await submitAnswer(DB, content, userId, "q1", wrong, t, () => 0)).toEqual({ kind: "submitted" });

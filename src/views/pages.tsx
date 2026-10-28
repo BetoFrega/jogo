@@ -1,8 +1,8 @@
 // Server-rendered pages. Player-facing text is Brazilian Portuguese; inside the
 // fiction (1994) never name real technologies.
 import { createContext, useContext, type Child } from "hono/jsx";
-import type { Doc, Engine, GateListing, Mail, PhonebookEntry, Relation } from "../content/types.ts";
-import { fieldName, type ComposerLayout, type ComposerValues } from "../game/composer.ts";
+import type { Block, BlockField, Doc, Engine, GateListing, Mail, PhonebookEntry, Relation } from "../content/types.ts";
+import { fieldName, type ComposerValues } from "../game/composer.ts";
 import type { QuestionStatus } from "../game/state.ts";
 import { AUTOSAVE_JS, autosaveKey } from "./autosave.ts";
 
@@ -350,13 +350,13 @@ export function ComposerPage(props: {
   from: string;
   /** The letter that asks the question, so the player answers without leaving the form. */
   letterHtml: string;
-  layout: ComposerLayout;
+  /** Only what the page shows: the fact behind each block stays on the server. */
+  blocks: Pick<Block, "ask" | "fields">[];
   relations: Relation[];
   values: ComposerValues;
   errors: Record<string, string>;
   error?: string;
 }) {
-  const { slots, numbered } = props.layout;
   const text = (name: string, label: string, required: boolean) => (
     <input
       type="text"
@@ -379,45 +379,43 @@ export function ComposerPage(props: {
           </summary>
           <div class="paper" dangerouslySetInnerHTML={{ __html: props.letterHtml }} />
         </details>
-        <p>
-          Monte {slots === 1 ? "o fato" : `os ${slots} fatos`} que respondem à pergunta, em qualquer ordem. A redação avalia a resposta inteira.
-          {numbered > 0
-            ? numbered === slots
-              ? " Todos os fatos levam número."
-              : ` ${numbered === 1 ? "O primeiro quadro é para o fato" : `Os ${numbered} primeiros quadros são para os fatos`} que levam número.`
-            : null}
-        </p>
+        <p>Responda cada pergunta da redação no seu quadro. A redação avalia a resposta inteira.</p>
         <p>
           Escreva os nomes como constam na lista telefônica, e as entidades como constam nos documentos. Campos com <span class="req">*</span> são
           obrigatórios.
         </p>
         {props.error ? <p class="error">{props.error}</p> : null}
         <form method="post" action={`/responder/${props.questionId}`} data-autosave={autosaveKey(props.handle, props.questionId)}>
-          {Array.from({ length: slots }, (_, i) => {
-            const n = (f: Parameters<typeof fieldName>[1]) => fieldName(i, f);
+          {props.blocks.map((block, i) => {
+            const n = (f: BlockField) => fieldName(i, f);
+            const asks = (f: BlockField) => block.fields.includes(f);
             return (
               <fieldset>
-                <legend>
-                  Fato {i + 1}
-                  {i < numbered ? " — com número" : ""}
-                </legend>
-                <Field label="Quem (nome completo)" required name={n("who")} error={props.errors[n("who")]}>
-                  {text(n("who"), "Quem", true)}
-                </Field>
-                <Field label="Relação" required name={n("rel")} error={props.errors[n("rel")]}>
-                  <select id={n("rel")} name={n("rel")} aria-label="Relação" required>
-                    <option value="">(relação)</option>
-                    {props.relations.map((r) => (
-                      <option value={r.id} selected={props.values[n("rel")] === r.id}>
-                        {r.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Com quem (pessoa ou entidade)" required name={n("obj")} error={props.errors[n("obj")]}>
-                  {text(n("obj"), "Com quem", true)}
-                </Field>
-                {i < numbered ? (
+                <legend>Pergunta {i + 1}</legend>
+                <p class="ask">{block.ask}</p>
+                {asks("who") ? (
+                  <Field label="Quem (nome completo)" required name={n("who")} error={props.errors[n("who")]}>
+                    {text(n("who"), "Quem", true)}
+                  </Field>
+                ) : null}
+                {asks("rel") ? (
+                  <Field label="Relação" required name={n("rel")} error={props.errors[n("rel")]}>
+                    <select id={n("rel")} name={n("rel")} aria-label="Relação" required>
+                      <option value="">(relação)</option>
+                      {props.relations.map((r) => (
+                        <option value={r.id} selected={props.values[n("rel")] === r.id}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                ) : null}
+                {asks("obj") ? (
+                  <Field label="Com quem (pessoa ou entidade)" required name={n("obj")} error={props.errors[n("obj")]}>
+                    {text(n("obj"), "Com quem", true)}
+                  </Field>
+                ) : null}
+                {asks("num") ? (
                   <Field label="Número" required name={n("num")} error={props.errors[n("num")]}>
                     {text(n("num"), "Número", true)}
                   </Field>

@@ -8,7 +8,10 @@ import { parse as parseYaml } from "yaml";
 import { normalize } from "../src/content/normalize.ts";
 import { similarPhonebookPairs } from "../src/game/resolve.ts";
 import {
+  BLOCK_FIELDS,
   GATE_ENGINE_PREFIX,
+  type Block,
+  type BlockField,
   type Doc,
   type Engine,
   type Fact,
@@ -34,6 +37,8 @@ export class CompileError extends Error {
 }
 
 const ID_RE = /^[a-z0-9-]+$/;
+const MIN_BLOCKS = 3;
+const MIN_FIELDS = 3;
 const PLACEHOLDER_RE = /\{\{\s*([^}]*?)\s*\}\}/g;
 
 interface SourceDoc extends Doc {
@@ -60,7 +65,7 @@ export function compile(sourceDir: string, version: number, warn: (message: stri
   const graphSrc = (readYaml(join(sourceDir, "graph.yaml")) ?? {}) as {
     orgs?: Org[];
     facts?: Fact[];
-    questions?: Question[];
+    questions?: (Omit<Question, "blocks"> & { blocks?: (Omit<Block, "fields"> & { fields?: BlockField[] })[] })[];
   };
   const words = readLines(join(sourceDir, "words.txt"));
   const forbiddenPath = join(sourceDir, "forbidden.txt");
@@ -71,7 +76,7 @@ export function compile(sourceDir: string, version: number, warn: (message: stri
   const relations: Relation[] = manifestSrc.relations ?? [];
   const orgs = graphSrc.orgs ?? [];
   const facts = graphSrc.facts ?? [];
-  const questions = graphSrc.questions ?? [];
+  const questionsSrc = graphSrc.questions ?? [];
 
   const docs = listMarkdown(join(sourceDir, "docs")).map((f) => parseDoc(sourceDir, f));
   const mails = listMarkdown(join(sourceDir, "mail")).map((f) => parseMail(sourceDir, f));
@@ -83,7 +88,7 @@ export function compile(sourceDir: string, version: number, warn: (message: stri
   checkUnique("relation", relations.map((r) => r.id), fail);
   checkUnique("org", orgs.map((o) => o.id), fail);
   checkUnique("fact", facts.map((f) => f.id), fail);
-  checkUnique("question", questions.map((q) => q.id), fail);
+  checkUnique("question", questionsSrc.map((q) => q.id), fail);
   checkUnique("doc", docs.map((d) => d.id), fail);
   checkUnique("mail", mails.map((m) => m.id), fail);
   checkUnique(
@@ -104,7 +109,7 @@ export function compile(sourceDir: string, version: number, warn: (message: stri
   const orgIds = new Set(orgs.map((o) => o.id));
   const factIds = new Set(facts.map((f) => f.id));
   const mailIds = new Set(mails.map((m) => m.id));
-  const questionIds = new Set(questions.map((q) => q.id));
+  const questionIds = new Set(questionsSrc.map((q) => q.id));
   const people = new Set(phonebook.map(personKey));
 
   for (const g of gates) {
@@ -124,13 +129,31 @@ export function compile(sourceDir: string, version: number, warn: (message: stri
       fail(`fact ${f.id}: object ${fmtPerson(f.object)} is not in the phonebook`);
     }
   }
-  for (const q of questions) {
+  const factById = new Map(facts.map((f) => [f.id, f]));
+  // Difficulty floor: every question asks at least MIN_BLOCKS facts, each with at least MIN_FIELDS fields to fill.
+  const questions: Question[] = questionsSrc.map((q) => {
     if (!mailIds.has(q.mail)) fail(`question ${q.id}: unknown mail "${q.mail}"`);
     if (!mailIds.has(q.accept_mail)) fail(`question ${q.id}: unknown accept_mail "${q.accept_mail}"`);
     if (!mailIds.has(q.reject_mail)) fail(`question ${q.id}: unknown reject_mail "${q.reject_mail}"`);
-    if (!q.facts?.length) fail(`question ${q.id}: needs at least one fact`);
-    for (const fid of q.facts ?? []) if (!factIds.has(fid)) fail(`question ${q.id}: unknown fact "${fid}"`);
-  }
+    const blocks = q.blocks ?? [];
+    if (blocks.length < MIN_BLOCKS) fail(`question ${q.id}: needs at least ${MIN_BLOCKS} blocks, has ${blocks.length}`);
+    return {
+      ...q,
+      blocks: blocks.map((b, i) => {
+        const where = `question ${q.id} block ${i + 1}`;
+        if (typeof b.ask !== "string" || !b.ask.trim()) fail(`${where}: needs an "ask" text`);
+        const fact = factById.get(b.fact);
+        if (!fact) fail(`${where}: unknown fact "${b.fact}"`);
+        const all: BlockField[] = fact?.number === undefined ? ["who", "rel", "obj"] : ["who", "rel", "obj", "num"];
+        const asked = b.fields ?? all;
+        for (const f of asked) if (!BLOCK_FIELDS.includes(f)) fail(`${where}: unknown field "${f}"`);
+        if (asked.includes("num") && fact && fact.number === undefined) fail(`${where}: asks "num" but fact ${b.fact} has no number`);
+        const fields = BLOCK_FIELDS.filter((f) => asked.includes(f));
+        if (fields.length < MIN_FIELDS) fail(`${where}: needs at least ${MIN_FIELDS} fields, has ${fields.length}`);
+        return { ask: b.ask, fact: b.fact, fields };
+      }),
+    };
+  });
   for (const m of mails) if (m.question && !questionIds.has(m.question)) fail(`${m.file}: unknown question "${m.question}"`);
 
   for (const d of docs) {
@@ -158,8 +181,7 @@ export function compile(sourceDir: string, version: number, warn: (message: stri
   const evidenced = new Set(docs.flatMap((d) => d.evidence));
   const collectableNumbers = new Set(docs.flatMap((d) => d.collect.numbers.map(normalize)));
   const collectableOrgs = new Set(docs.flatMap((d) => d.collect.orgs));
-  const factById = new Map(facts.map((f) => [f.id, f]));
-  for (const fid of new Set(questions.flatMap((q) => q.facts ?? []))) {
+  for (const fid of new Set(questions.flatMap((q) => q.blocks.map((b) => b.fact)))) {
     const f = factById.get(fid);
     if (!f) continue;
     if (!evidenced.has(fid)) fail(`fact ${fid}: used by a question but no doc lists it as evidence`);

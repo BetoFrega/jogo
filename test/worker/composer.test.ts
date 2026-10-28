@@ -11,10 +11,11 @@ async function player() {
   return { handle, cookie };
 }
 
-/** q1 = { Marta Exemplo nomeou Rui Exemplo, nº 0493 } + { Rui Exemplo é cônjuge de Ana Teste }. */
+/** q1 blocks: Marta Exemplo nomeou Rui Exemplo (nº 0493); Rui Exemplo é cônjuge de Ana Teste; Beto Teste é irmão de Ana Teste. */
 const q1Right = {
   f0_who: "Marta Exemplo", f0_rel: "nomeou", f0_obj: "Rui Exemplo", f0_num: "0493",
   f1_who: "Ana Teste", f1_rel: "conjuge", f1_obj: "Rui Exemplo",
+  f2_who: "Beto Teste", f2_rel: "irmao_de", f2_obj: "Ana Teste",
 };
 
 async function answers(handle: string) {
@@ -49,15 +50,15 @@ describe("composer form", () => {
   it("re-shows unknown, ambiguous or missing fields beside each field with the typed values, without recording or rate-limiting the attempt", async () => {
     const { handle, cookie } = await player();
     {
-      // Número only on rows for facts that have a number; required markers; autosave hook.
+      // Each block shows its own question and only its own fields; required markers; autosave hook.
       const res = await get("/responder/q1", cookie);
       expect(res.status).toBe(200);
       const html = await res.text();
       // The asking letter is on the form itself, with placeholders filled.
       expect(html).toContain("<summary>Carta de Editor Exemplo: Primeira pauta</summary>");
       expect(html).toContain(`Oi, ${handle}. Bem-vindo à redação.`);
-      expect(html).toContain("<legend>Fato 1 — com número</legend>");
-      expect(html).toContain("<legend>Fato 2</legend>");
+      expect(html).toContain('<legend>Pergunta 1</legend><p class="ask">Quem nomeou quem, e por qual portaria?</p>');
+      expect(html).toContain('<legend>Pergunta 3</legend><p class="ask">Quem é parente da esposa do nomeado?</p>');
       expect(html).toContain('name="f0_num"');
       expect(html).not.toContain('name="f1_num"');
       expect(html).toContain('<input type="text" id="f0_who" name="f0_who" value="" aria-label="Quem" autocomplete="off" required=""');

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compile } from "../../compiler/compile.ts";
 import type { Graph } from "../../src/content/types.ts";
-import { composerLayout, parseComposer } from "../../src/game/composer.ts";
+import { parseComposer } from "../../src/game/composer.ts";
 import { canonicalNumber, resolveOrg, resolvePerson } from "../../src/game/resolve.ts";
 
 const graph: Graph = JSON.parse(compile("fixtures/content", 1).get("content/v1/graph.json")!);
@@ -100,18 +100,18 @@ describe("canonicalNumber", () => {
 
 describe("parseComposer", () => {
   const q1 = graph.questions.find((q) => q.id === "q1")!;
-  const values = { f0_who: "Marta Exemplo", f0_rel: "nomeou", f0_obj: "Merenda Exemplo", f0_num: "1", f1_who: "Ana Teste", f1_rel: "conjuge", f1_obj: "Rui Exemplo" };
+  const values = { f0_who: "Marta Exemplo", f0_rel: "nomeou", f0_obj: "Merenda Exemplo", f0_num: "1", f1_who: "Ana Teste", f1_rel: "conjuge", f1_obj: "Rui Exemplo", f2_who: "Beto Teste", f2_rel: "irmao_de", f2_obj: "Ana Teste" };
 
   it("resolves one field to a person or an org", () => {
-    const parsed = parseComposer({ ...values, f0_obj: "Merenda Exemplo Ltda." }, composerLayout(graph, q1), graph, ["org-merenda"]);
-    expect(parsed.kind === "ok" && parsed.facts.map((f) => f.object)).toEqual([{ org: "org-merenda" }, { first: "Rui", last: "Exemplo" }]);
+    const parsed = parseComposer({ ...values, f0_obj: "Merenda Exemplo Ltda." }, q1.blocks, graph, ["org-merenda"]);
+    expect(parsed.kind === "ok" && parsed.answers.map((a) => a.object)).toEqual([{ org: "org-merenda" }, { first: "Rui", last: "Exemplo" }, { first: "Ana", last: "Teste" }]);
   });
 
   it("resolves only the orgs the player has collected, so typing cannot probe the case", () => {
-    expect(parseComposer(values, composerLayout(graph, q1), graph, [])).toEqual({
+    expect(parseComposer(values, q1.blocks, graph, [])).toEqual({
       kind: "errors",
       errors: { f0_obj: "Não consta na lista telefônica nem nos documentos que você leu." },
     });
-    expect(parseComposer(values, composerLayout(graph, q1), graph, ["org-merenda"]).kind).toBe("ok");
+    expect(parseComposer(values, q1.blocks, graph, ["org-merenda"]).kind).toBe("ok");
   });
 });

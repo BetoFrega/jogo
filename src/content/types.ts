@@ -47,10 +47,22 @@ export interface Fact {
   number?: string;
 }
 
+/** A field the player fills in a question block. */
+export type BlockField = "who" | "rel" | "obj" | "num";
+export const BLOCK_FIELDS: readonly BlockField[] = ["who", "rel", "obj", "num"];
+
+/** One asked fact: the parts not in `fields` are given by the `ask` text and taken from the fact when judging. */
+export interface Block {
+  ask: string;
+  fact: string;
+  /** Compiled: always explicit, in BLOCK_FIELDS order. */
+  fields: BlockField[];
+}
+
 export interface Question {
   id: string;
   mail: string;
-  facts: string[];
+  blocks: Block[];
   accept_mail: string;
   reject_mail: string;
 }

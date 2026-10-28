@@ -11,6 +11,10 @@ facts:
     subject: { first: "Rui", last: "Exemplo" }
     relation: conjuge
     object: { first: "Ana", last: "Teste" }
+  - id: f-irmaos
+    subject: { first: "Beto", last: "Teste" }
+    relation: irmao_de
+    object: { first: "Ana", last: "Teste" }
   - id: f-socia
     subject: { first: "Ana", last: "Teste" }
     relation: socio_de
@@ -23,11 +27,17 @@ facts:
 questions:
   - id: q1
     mail: carta-01
-    facts: [f-nomeacao, f-conjuge]
+    blocks:
+      - { ask: "Quem nomeou quem, e por qual portaria?", fact: f-nomeacao }
+      - { ask: "Com quem o nomeado é casado?", fact: f-conjuge }
+      - { ask: "Quem é parente da esposa do nomeado?", fact: f-irmaos }
     accept_mail: carta-02
     reject_mail: recusa
   - id: q2
     mail: carta-02
-    facts: [f-socia, f-pagamento]
+    blocks:
+      - { ask: "Quem é sócia de qual empresa?", fact: f-socia }
+      - { ask: "O que Rui Exemplo autorizou, a quem, e com qual número?", fact: f-pagamento, fields: [rel, obj, num] }
+      - { ask: "Quem nomeou quem? Informe o número da portaria.", fact: f-nomeacao, fields: [who, obj, num] }
     accept_mail: carta-03
     reject_mail: recusa

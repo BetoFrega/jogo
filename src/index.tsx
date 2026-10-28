@@ -6,7 +6,7 @@ import { createAuth, MAGIC_LINK_PATH, type Auth } from "./auth.ts";
 import { getDoc, getMail, loadContent, type Content } from "./content/store.ts";
 import { GATE_ENGINE_PREFIX } from "./content/types.ts";
 import type { Env } from "./env.ts";
-import { composerLayout, composerValues, parseComposer, type ComposerValues } from "./game/composer.ts";
+import { composerValues, parseComposer, type ComposerValues } from "./game/composer.ts";
 import { signDocLink, verifyDocLink } from "./game/doclink.ts";
 import { derivePassword, verifyPassword } from "./game/gate.ts";
 import { renderMarkdown } from "./game/markdown.ts";
@@ -231,7 +231,7 @@ async function composer(c: C, questionId: string, form?: { values: ComposerValue
       subject={mail.subject}
       from={mail.from}
       letterHtml={await render(c, mail.body)}
-      layout={composerLayout(content.graph, question)}
+      blocks={question.blocks}
       relations={content.graph.relations}
       values={form?.values ?? {}}
       errors={form?.errors ?? {}}
@@ -257,13 +257,12 @@ game.post("/responder/:question", async (c) => {
   const status = await state.questionStatus(c.env.DB, content, c.get("userId"), id, Date.now());
   if (status === "unavailable") return c.notFound();
   if (status !== "open") return c.redirect("/correio");
-  const layout = composerLayout(content.graph, question);
-  const values = composerValues(await c.req.parseBody(), layout);
+  const values = composerValues(await c.req.parseBody(), question.blocks);
   // Resolution and missing fields are answered here, before submitAnswer: no answer row, no rate-limit use.
   const { orgs } = await state.collectedTerms(c.env.DB, c.get("userId"));
-  const parsed = parseComposer(values, layout, content.graph, orgs);
+  const parsed = parseComposer(values, question.blocks, content.graph, orgs);
   if (parsed.kind === "errors") return composer(c, id, { values, errors: parsed.errors, error: "Revise os campos marcados. Nada foi enviado à redação." });
-  const result = await state.submitAnswer(c.env.DB, content, c.get("userId"), id, parsed.facts, Date.now());
+  const result = await state.submitAnswer(c.env.DB, content, c.get("userId"), id, parsed.answers, Date.now());
   switch (result.kind) {
     case "submitted":
       return c.redirect(`/correio?enviado=${id}`);

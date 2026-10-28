@@ -81,17 +81,28 @@ facts:
 questions:
   - id: q1
     mail: carta-01          # the letter that asks it
-    facts: [f-nomeacao, f-outro]   # all required, order-free, accepted as a batch
+    blocks:                 # at least 3; one asked fact each, in this order
+      - ask: "Quem nomeou quem, e por qual portaria?"   # shown above the block's fields
+        fact: f-nomeacao
+      - ask: "O que Rui Exemplo autorizou, a quem, e com qual número?"
+        fact: f-pagamento
+        fields: [rel, obj, num]   # optional; default: who, rel, obj (+ num when the fact has a number)
     accept_mail: carta-02   # delivered after the reply delay when accepted
     reject_mail: recusa-q1  # delivered after the delay when rejected (reusable)
 ```
 
-A submitted answer is a list of composed facts. It is accepted only when the set
-of submitted facts equals the question's set exactly (same size, every fact
-matched, in any order). Facts compare by the **resolved** subject phonebook
-entry, relation id, resolved object (phonebook entry or org id) and canonical
-number (when the fact has one). Symmetric relations match in either direction.
-The verdict never says which fact failed.
+Each block asks one fact. `fields` lists what the player fills: `who`
+(subject), `rel` (relation), `obj` (object, person or org) and `num` (number,
+only when the fact has one). A block must ask at least 3 fields, so it can
+leave out at most one part of a numbered fact and none of an unnumbered one;
+the `ask` text gives the part left out. These floors keep the difficulty.
+
+A submitted answer has one entry per block. Each entry is completed with the
+parts the block did not ask, taken from its fact, and compared with that fact
+by the **resolved** subject phonebook entry, relation id, resolved object
+(phonebook entry or org id) and canonical number. Symmetric relations match in
+either direction. The answer is accepted only when every block matches; the
+verdict never says which block failed.
 
 ### docs/**/*.md
 
@@ -138,14 +149,15 @@ Oi, {{player.handle}}, ...
 
 ## Composer and name resolution
 
-The reply composer (`/responder/<question>`) has one box per question fact. The
-order of the boxes does not matter. Each box has:
+The reply composer (`/responder/<question>`) shows the asking letter, then one
+box per question block, in order: "Pergunta N", the block's `ask`, and only
+the block's fields, all required:
 
-- **Quem (nome completo)**, required, free text: a phonebook person.
-- **Relação**, required, a select with the manifest's `relations`.
-- **Com quem (pessoa)** or **entidade**, free text, exactly one of the two.
-- **Número**, required, free text, only in the first K boxes, where K is how many
-  of the question's facts have a `number`. Those boxes are labeled "com número".
+- **Quem (nome completo)** (`who`), free text: a phonebook person.
+- **Relação** (`rel`), a select with the manifest's `relations`.
+- **Com quem (pessoa ou entidade)** (`obj`), free text: a phonebook person or
+  an org the player has collected.
+- **Número** (`num`), free text.
 
 Typos are tolerated by **resolving** each typed value to one entry before
 judging; the judge itself is exact. A typed person resolves like this:
@@ -182,6 +194,7 @@ page works without it.
 
 - Unique ids; every reference resolves (engine, gate, relation, fact, org, mail, question).
 - Every fact subject/object person exists in the phonebook.
+- Every question has at least 3 blocks; every block has an `ask`, a known fact and at least 3 fields, with `num` only for a numbered fact.
 - Every fact used by a question has at least one evidence doc.
 - Every `{{gate:x}}` and `{{player.handle}}` placeholder is known.
 - Forbidden-terms check: `<source>/forbidden.txt` (optional, one normalized term
